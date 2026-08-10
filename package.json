@@ -1,22 +1,23 @@
 {
-  "name": "whatsapp-export-parser",
+  "name": "whatsapp-export-viewer",
   "version": "1.0.0",
-  "description": "A Node.js parser that converts WhatsApp chat exports into a structured SQLite database",
-  "homepage": "https://github.com/Muntazir3i/whatsapp-export-parser#readme",
+  "description": "A cross-platform desktop application for importing, parsing, and viewing WhatsApp chat exports locally, built with Electron, React, Node.js, and SQLite.",
+  "homepage": "https://github.com/Muntazir3i/whatsapp-export-viewer#readme",
   "bugs": {
-    "url": "https://github.com/Muntazir3i/whatsapp-export-parser/issues"
+    "url": "https://github.com/Muntazir3i/whatsapp-export-viewer/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Muntazir3i/whatsapp-export-parser.git"
+    "url": "git+https://github.com/Muntazir3i/whatsapp-export-viewer.git"
   },
   "license": "ISC",
   "author": "MDOT",
   "type": "module",
-  "main": "index.js",
+  "main": "electron/main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "electron": "electron ."
   },
   "dependencies": {
     "better-sqlite3": "^13.0.1",
@@ -24,5 +25,8 @@
   },
   "allowScripts": {
     "better-sqlite3@13.0.1": true
+  },
+  "devDependencies": {
+    "electron": "^43.3.0"
   }
 }
