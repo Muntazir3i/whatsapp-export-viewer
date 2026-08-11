@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>IPC Experiment</title>
+</head>
+
+<body>
+    <h1>Electron IPC Experiment</h1>
+
+    <p id="version"></p>
+
+    <script>
+        async function showVersion() {
+            const version = await window.api.getVersion();
+
+            document.getElementById("version").textContent =
+                `Application version: ${version}`;
+        }
+
+        showVersion();
+    </script>
+</body>
+</html>
