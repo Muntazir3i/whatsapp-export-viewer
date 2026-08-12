@@ -24,6 +24,10 @@ ipcMain.handle("get-app-version", () => {
     return "1.0.0";
 });
 
+ipcMain.handle("get-chats",() => {
+    return "This is to check if the chat is working or not"
+})
+
 app.whenReady().then(() => {
     createWindow();
 

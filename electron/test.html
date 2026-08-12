@@ -12,10 +12,9 @@
 
     <script>
         async function showVersion() {
-            const version = await window.api.getVersion();
-
-            document.getElementById("version").textContent =
-                `Application version: ${version}`;
+            const result = await window.api.getChats();
+            console.log(result);
+            
         }
 
         showVersion();
