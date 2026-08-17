@@ -5,6 +5,7 @@ import { chatRepository } from "../src/db/chatRepository.js";
 import { createDatabaseConnection } from "../src/db/database.js";
 import { chatServices } from "../src/services/chatService.js";
 import { createSchema } from "../src/db/schema.js";
+import { registerChatHandlers } from "./ipc/chatHandlers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,13 +33,7 @@ function createWindow() {
     win.loadFile(path.join(__dirname, "test.html"));
 }
 
-ipcMain.handle("get-app-version", () => {
-    return "1.0.0";
-});
-
-ipcMain.handle("get-chats",() => {
-    return cs.getChats()
-})
+registerChatHandlers(cs);
 
 app.whenReady().then(() => {
     createWindow();
