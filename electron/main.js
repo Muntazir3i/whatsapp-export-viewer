@@ -30,7 +30,8 @@ function createWindow() {
         }
     });
 
-    win.loadFile(path.join(__dirname, "test.html"));
+    // win.loadFile(path.join(__dirname, "test.html"));
+    win.loadURL("http://localhost:5174/")
 }
 
 registerChatHandlers(cs);

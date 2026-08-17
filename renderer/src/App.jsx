@@ -7,6 +7,14 @@ import './App.css'
 function App() {
   const [count, setCount] = useState(0)
 
+  async function getChat(){
+    const result = await window.api.getChats();
+            console.log(result);
+  }
+
+  getChat()
+  
+
   return (
     <>
       <section id="center">
