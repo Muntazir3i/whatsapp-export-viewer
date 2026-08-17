@@ -1,5 +1,6 @@
 # Dependencies
 /node_modules
+/renderer/node_modules
 /jspm_packages
 
 # Production builds
