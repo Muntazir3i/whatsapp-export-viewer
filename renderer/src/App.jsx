@@ -6,8 +6,6 @@ import './App.css'
 import { useChats } from './hooks/useChats.js'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   
   return (
     <>
