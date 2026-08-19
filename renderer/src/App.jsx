@@ -5,17 +5,15 @@ import heroImg from './assets/hero.png'
 import './App.css'
 import { useChats } from './hooks/useChats.js'
 import './styles/global.css'
+import { Sidebar } from './components/Sidebar/Sidebar.jsx'
+import { ChatWindow } from './components/chat/ChatWindow.jsx'
 
 function App() {
   
   return (
     <>
-       <div className="flex min-h-screen items-center justify-center bg-gray-900">
-            
-            <p className='text-red-500 font-bold text-2xl'>
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Pariatur quae exercitationem animi soluta perspiciatis at, minima eaque eligendi iure inventore quia nostrum, quis impedit corporis quidem delectus labore voluptatem officiis?
-            </p>
-        </div>
+       <Sidebar></Sidebar>
+       <ChatWindow></ChatWindow>
     </>
   )
 }
