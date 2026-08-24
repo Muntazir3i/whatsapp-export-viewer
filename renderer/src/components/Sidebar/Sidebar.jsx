@@ -4,7 +4,7 @@ import { SidebarHeader} from './SidebarHeader.jsx';
 import { SidebarSearch } from './SidebarSearch.jsx';
 import { SidebarChatlist } from './SidebarChatlist.jsx';
 
-export const Sidebar = () => {
+export const Sidebar = ({setSelectedChatId}) => {
     const { chats, loading, error } = useChats();
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -26,7 +26,7 @@ export const Sidebar = () => {
             {/* Search Header */}
             <SidebarSearch searchTerm = {searchTerm} setSearchTerm = {setSearchTerm}/>
             {/* Chat List Scrollable Container */}
-            <SidebarChatlist loading = {loading} error = {error} filteredChats = {filteredChats}/>
+            <SidebarChatlist loading = {loading} error = {error} filteredChats = {filteredChats} setSelectedChatId = {setSelectedChatId}/>
             
         </aside>
     );

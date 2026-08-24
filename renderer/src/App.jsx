@@ -9,10 +9,12 @@ import { Sidebar } from './components/Sidebar/Sidebar.jsx'
 import { ChatWindow } from './components/chat/ChatWindow.jsx'
 
 function App() {
+  const [selectedChatId, setSelectedChatId] = useState(null)
+  
   
   return (
     <>
-       <Sidebar></Sidebar>
+       <Sidebar setSelectedChatId = {setSelectedChatId}></Sidebar>
        <ChatWindow></ChatWindow>
     </>
   )
