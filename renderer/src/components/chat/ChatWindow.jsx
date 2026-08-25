@@ -1,8 +1,9 @@
 import React, { useRef, useEffect } from "react";
 import { useMessages } from "../../hooks/useMessages.js";
 
-export const ChatWindow = ({ selectedChatId }) => {
+export const ChatWindow = ({ selectedChat }) => {
     // Fetch messages using selectedChatId prop
+    const selectedChatId = selectedChat.id
     const { messages = [], loading, error } = useMessages(selectedChatId);
     const messagesEndRef = useRef(null);
 
@@ -36,11 +37,11 @@ export const ChatWindow = ({ selectedChatId }) => {
             <div className="h-14 bg-[#202c33] px-4 flex items-center justify-between border-b border-[#222d34] flex-shrink-0 z-10">
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-[#6b7c85] flex items-center justify-center text-white font-medium text-base flex-shrink-0">
-                        {selectedChatId.toString().charAt(0).toUpperCase()}
+                        {selectedChat.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
                         <h2 className="text-[#e9edef] font-medium text-base leading-tight truncate">
-                            Chat #{selectedChatId}
+                            {selectedChat.name}
                         </h2>
                         <span className="text-[#8696a0] text-xs block truncate">
                             SQLite Export Data

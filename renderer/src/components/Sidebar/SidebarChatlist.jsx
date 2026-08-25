@@ -3,7 +3,7 @@ import { useState } from 'react'
 
 
 
-export const SidebarChatlist = ({ loading, error, filteredChats, setSelectedChatId }) => {
+export const SidebarChatlist = ({ loading, error, filteredChats, setSelectedChat }) => {
     
     return (
         <div className="flex-1 overflow-y-auto">
@@ -25,7 +25,7 @@ export const SidebarChatlist = ({ loading, error, filteredChats, setSelectedChat
                         key={chat.id || chat.name}
                         className="flex items-center gap-3 px-4 py-3  hover:bg-[#202c33] cursor-pointer transition-colors"
                         onClick={() => {
-                            setSelectedChatId(chat.id)
+                            setSelectedChat(chat)
                         }}
                     >
                         {/*fallback initial */}
