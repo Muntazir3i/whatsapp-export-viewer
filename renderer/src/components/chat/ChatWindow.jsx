@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 // Mock chat data matching WhatsApp Web UI
 const MOCK_MESSAGES = [
@@ -30,7 +30,14 @@ const MOCK_MESSAGES = [
   }
 ];
 
-export const ChatWindow = ({ activeChat }) => {
+export const ChatWindow = ({ activeChat, selectedChatId}) => {
+
+  useEffect(()=>{
+    console.log(selectedChatId);
+    
+  },[selectedChatId])
+
+
   return (
     <div className="sm:ml-80 md:ml-96 h-screen flex flex-col bg-[#0b141a] overflow-hidden">
       {/* 1. Header */}

@@ -26,8 +26,6 @@ export const SidebarChatlist = ({ loading, error, filteredChats, setSelectedChat
                         className="flex items-center gap-3 px-4 py-3  hover:bg-[#202c33] cursor-pointer transition-colors"
                         onClick={() => {
                             setSelectedChatId(chat.id)
-                            console.log(`SELECTED CHAT: ${chat.id}`);
-
                         }}
                     >
                         {/*fallback initial */}
