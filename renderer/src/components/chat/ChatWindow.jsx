@@ -4,6 +4,9 @@ import { ChatWindowStartup } from "./ChatWindowStartup.jsx";
 import { ChatWindowLoading } from "./ChatWindowLoading.jsx";
 import { ChatWindowError } from "./ChatWindowError.jsx";
 import { ChatHeader } from "./ChatHeader.jsx";
+import { ReadOnlyInput } from "./ReadOnlyInput.jsx";
+import { NoParticipants } from "./NoParticipants.jsx";
+import { SelectParticipant } from "./SelectParticipant.jsx";
 
 export const ChatWindow = ({ selectedChat }) => {
   const selectedChatId = selectedChat?.id;
@@ -117,15 +120,7 @@ export const ChatWindow = ({ selectedChat }) => {
    */
   if (participants.length === 0) {
     return (
-      <div className="sm:ml-80 md:ml-96 h-screen flex flex-col bg-[#0b141a]">
-        <ChatHeader selectedChat={selectedChat} />
-
-        <div className="flex-1 flex items-center justify-center">
-          <span className="bg-[#182229] text-[#8696a0] text-xs px-3 py-1.5 rounded-md">
-            No participants found in this conversation.
-          </span>
-        </div>
-      </div>
+     <NoParticipants selectedChat = {selectedChat}/>
     );
   }
 
@@ -138,48 +133,7 @@ export const ChatWindow = ({ selectedChat }) => {
    */
   if (!currentUser) {
     return (
-      <div className="sm:ml-80 md:ml-96 h-screen flex flex-col bg-[#0b141a]">
-        <ChatHeader selectedChat={selectedChat} />
-
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-md bg-[#202c33] rounded-lg p-6 shadow-lg">
-            <h2 className="text-[#e9edef] text-xl font-medium mb-2">
-              Who are you?
-            </h2>
-
-            <p className="text-[#8696a0] text-sm mb-6">
-              Select your name from the participants in this
-              conversation. Your messages will appear on the
-              right and everyone else's messages will appear on
-              the left.
-            </p>
-
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {participants.map((participant) => (
-                <button
-                  key={participant}
-                  onClick={() =>
-                    setCurrentUser(participant)
-                  }
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-[#2a3942] hover:bg-[#374851] transition-colors text-left"
-                >
-                  <div className="w-10 h-10 rounded-full bg-[#6b7c85] flex items-center justify-center text-white font-medium">
-                    {participant
-                      .charAt(0)
-                      .toUpperCase()}
-                  </div>
-
-                  <span className="text-[#e9edef] text-sm">
-                    {participant}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <ReadOnlyInput />
-      </div>
+      <SelectParticipant selectedChat = {selectedChat} participants = {participants} setCurrentUser = {setCurrentUser} />
     );
   }
 
@@ -286,28 +240,3 @@ export const ChatWindow = ({ selectedChat }) => {
 |--------------------------------------------------------------------------
 */
 
-const ReadOnlyInput = () => {
-  return (
-    <div className="h-16 bg-[#202c33] px-4 flex items-center gap-3 border-t border-[#222d34] flex-shrink-0">
-      <div className="flex-1 bg-[#2a3942] rounded-lg px-4 py-2 text-sm text-[#8696a0] flex items-center justify-between cursor-not-allowed">
-        <span className="truncate">
-          Export Viewer Mode (Read-only)
-        </span>
-
-        <svg
-          className="w-4 h-4 text-[#8696a0]"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 002 2v6a2 2 0 002-2zm10-10V7a4 4 0 00-8 0v4h8z"
-          />
-        </svg>
-      </div>
-    </div>
-  );
-};
