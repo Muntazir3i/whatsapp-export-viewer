@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useMessages } from "../../hooks/useMessages.js";
 import { ChatWindowStartup } from "./ChatWindowStartup.jsx";
 import { ChatWindowLoading } from "./ChatWindowLoading.jsx";
@@ -7,139 +7,115 @@ import { NoParticipants } from "./NoParticipants.jsx";
 import { SelectParticipant } from "./SelectParticipant.jsx";
 import { ChatView } from "./ChatView.jsx";
 
+/**
+ * Controller component for managing chat window states.
+ * Handles participant set derivation, message ordering, scrolling, and view selection.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object|null} props.selectedChat - Currently selected chat object.
+ * @returns {JSX.Element}
+ */
 export const ChatWindow = ({ selectedChat }) => {
   const selectedChatId = selectedChat?.id;
 
-  const {
-    messages = [],
-    loading,
-    error
-  } = useMessages(selectedChatId);
+  // Fetch messages from database for selected chat
+  const { messages = [], loading, error } = useMessages(selectedChatId);
 
+  // Active user selection for outgoing/incoming bubble assignment
   const [currentUser, setCurrentUser] = useState(null);
+  
+  // Track previous chat ID to reset currentUser synchronously during render when switching chats
+  const [prevChatId, setPrevChatId] = useState(selectedChatId);
+  if (selectedChatId !== prevChatId) {
+    setPrevChatId(selectedChatId);
+    setCurrentUser(null);
+  }
+
+  // Ref for auto-scrolling to the latest message
   const messagesEndRef = useRef(null);
 
-  /*
-   * Get all unique participants from the messages.
-   *
-   * Example:
-   *
-   * [
-   *   "Mohammad",
-   *   "Ali",
-   *   "Ahmed",
-   *   "John"
-   * ]
+  /**
+   * Derive unique list of participants from message senders.
    */
   const participants = useMemo(() => {
     const uniqueSenders = new Set();
-
     messages.forEach((msg) => {
       if (msg.sender) {
         uniqueSenders.add(msg.sender);
       }
     });
-
-    return [...uniqueSenders];
+    return Array.from(uniqueSenders);
   }, [messages]);
 
-  /*
-   * Reset the selected user whenever the user switches chats.
-   */
-  useEffect(() => {
-    setCurrentUser(null);
-  }, [selectedChatId]);
-
-  /*
-   * We don't need "fromMe" or "isOutgoing".
-   *
-   * If the sender matches the participant the user selected,
-   * the message belongs to the current user.
+  /**
+   * Determines if a message is sent by the currently selected user profile.
+   * @param {Object} msg - Message object.
+   * @returns {boolean}
    */
   const isOutgoingMessage = (msg) => {
     return msg.sender === currentUser;
   };
 
-  /*
-   * Keep messages in chronological order.
-   *
-   * Assuming your database returns them newest-first,
-   * toReversed() puts them oldest -> newest.
-   *
-   * If your database already returns oldest -> newest,
-   * remove this.
+  /**
+   * Ensure messages are displayed in oldest-to-newest chronological order.
+   * Uses toReversed() if available, with a safe slice fallback.
    */
   const orderedMessages = useMemo(() => {
-    return messages.toReversed();
+    if (typeof messages.toReversed === "function") {
+      return messages.toReversed();
+    }
+    return [...messages].reverse();
   }, [messages]);
 
-  /*
-   * Scroll to the newest message.
+  /**
+   * Auto-scroll to bottom of chat window when messages or selected user changes.
    */
   useEffect(() => {
     if (currentUser) {
-      messagesEndRef.current?.scrollIntoView({
-        behavior: "smooth"
-      });
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [orderedMessages, currentUser]);
 
-  /*
-   * No chat selected.
-   */
+  // State 1: Startup view (no chat selected)
   if (!selectedChatId) {
-    return (
-      <ChatWindowStartup/>
-    );
+    return <ChatWindowStartup />;
   }
 
-  /*
-   * Loading messages.
-   *
-   * We still show the chat header because we already know
-   * which chat was selected.
-   */
+  // State 2: Messages loading
   if (loading) {
-    return (
-    <ChatWindowLoading selectedChat = {selectedChat}/>
-    );
+    return <ChatWindowLoading selectedChat={selectedChat} />;
   }
 
-  /*
-   * Database error.
-   */
+  // State 3: Database / loading error
   if (error) {
-    return (
-     <ChatWindowError selectedChat = {selectedChat}/>
-    );
+    return <ChatWindowError selectedChat={selectedChat} />;
   }
 
-  /*
-   * No participants found.
-   */
+  // State 4: No message senders found in chat
   if (participants.length === 0) {
-    return (
-     <NoParticipants selectedChat = {selectedChat}/>
-    );
+    return <NoParticipants selectedChat={selectedChat} />;
   }
 
-  /*
-   * The important part:
-   *
-   * We don't know who "you" are.
-   *
-   * So ask the user.
-   */
+  // State 5: Prompt user to choose their identity in this conversation
   if (!currentUser) {
     return (
-      <SelectParticipant selectedChat = {selectedChat} participants = {participants} setCurrentUser = {setCurrentUser} />
+      <SelectParticipant
+        selectedChat={selectedChat}
+        participants={participants}
+        setCurrentUser={setCurrentUser}
+      />
     );
   }
 
-  /*
-   * Normal chat view.
-   */
+  // State 6: Main conversation view
   return (
-    <ChatView selectedChat = {selectedChat} currentUser = {currentUser} orderedMessages = {orderedMessages} isOutgoingMessage = {isOutgoingMessage} messagesEndRef = {messagesEndRef} />
+    <ChatView
+      selectedChat={selectedChat}
+      currentUser={currentUser}
+      orderedMessages={orderedMessages}
+      isOutgoingMessage={isOutgoingMessage}
+      messagesEndRef={messagesEndRef}
+    />
   );
 };
