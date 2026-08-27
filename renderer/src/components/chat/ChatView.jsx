@@ -1,5 +1,6 @@
 import React from 'react'
 import { ChatHeader } from './ChatHeader.jsx';
+import { ReadOnlyInput } from './ReadOnlyInput.jsx';
 
 export const ChatView = ({selectedChat, currentUser, orderedMessages, isOutgoingMessage, messagesEndRef}) => {
   return (
