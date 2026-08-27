@@ -3,8 +3,6 @@ import { useMessages } from "../../hooks/useMessages.js";
 import { ChatWindowStartup } from "./ChatWindowStartup.jsx";
 import { ChatWindowLoading } from "./ChatWindowLoading.jsx";
 import { ChatWindowError } from "./ChatWindowError.jsx";
-import { ChatHeader } from "./ChatHeader.jsx";
-import { ReadOnlyInput } from "./ReadOnlyInput.jsx";
 import { NoParticipants } from "./NoParticipants.jsx";
 import { SelectParticipant } from "./SelectParticipant.jsx";
 import { ChatView } from "./ChatView.jsx";
