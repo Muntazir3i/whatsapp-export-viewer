@@ -8,6 +8,7 @@ import { ReadOnlyInput } from "./ReadOnlyInput.jsx";
 import { NoParticipants } from "./NoParticipants.jsx";
 import { SelectParticipant } from "./SelectParticipant.jsx";
 
+
 export const ChatWindow = ({ selectedChat }) => {
   const selectedChatId = selectedChat?.id;
 
