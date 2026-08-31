@@ -3,6 +3,7 @@ import { useChats } from '../../hooks/useChats.js';
 import { SidebarHeader } from './SidebarHeader.jsx';
 import { SidebarSearch } from './SidebarSearch.jsx';
 import { SidebarChatlist } from './SidebarChatlist.jsx';
+import { deleteChat } from '../../api/electronApi.js';
 
 /**
  * Sidebar component containing header title, search bar, and filtered chat list.
@@ -34,6 +35,16 @@ export const Sidebar = ({ setSelectedChat }) => {
     });
   }, [chats, searchTerm]);
 
+  async function removeChat(chatId) {
+    if(!chatId){
+      return
+    }
+
+    return deleteChat(chatId);
+  }
+
+  
+
   return (
     <aside
       id="default-sidebar"
@@ -52,6 +63,7 @@ export const Sidebar = ({ setSelectedChat }) => {
         error={error}
         filteredChats={filteredChats}
         setSelectedChat={setSelectedChat}
+        removeChat = {removeChat}
       />
     </aside>
   );

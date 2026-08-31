@@ -15,6 +15,7 @@ export const SidebarChatlist = ({
   error,
   filteredChats,
   setSelectedChat,
+  removeChat
 }) => {
   return (
     <div className="flex-1 overflow-y-auto">
@@ -41,6 +42,15 @@ export const SidebarChatlist = ({
             tabIndex={0}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#202c33] cursor-pointer transition-colors focus:outline-none focus:bg-[#202c33]"
             onClick={() => setSelectedChat(chat)}
+            onContextMenu={async (e)=>{
+              e.preventDefault();
+              try {
+                const result = await removeChat(chat.id);
+                console.log(result);
+              } catch (error) {
+                console.error(error);
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
