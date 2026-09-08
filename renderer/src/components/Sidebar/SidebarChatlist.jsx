@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { ContextMenu } from './ContextMenu.jsx'; // Adjust path if needed
+import { useState } from 'react';
+import { ContextMenu } from './ContextMenu.jsx';
 
 /**
  * Component to render the scrollable list of filtered chats in the sidebar.
  * Displays loading indicators, error notices, empty results, and individual chat items.
- * Supports custom context menu on right-click.
+ * Supports custom right-click context menu actions (edit, mute, delete).
  *
  * @component
  * @param {Object} props
@@ -12,7 +12,7 @@ import { ContextMenu } from './ContextMenu.jsx'; // Adjust path if needed
  * @param {Error|null} props.error - Error object if loading chats failed.
  * @param {Array<Object>} props.filteredChats - List of chats matching current filter.
  * @param {Function} props.setSelectedChat - Callback to select a chat.
- * @param {Function} props.removeChat - Callback to delete a chat by ID.
+ * @param {Function} [props.removeChat] - Callback to delete a chat by ID.
  * @returns {JSX.Element}
  */
 export const SidebarChatlist = ({
@@ -20,36 +20,56 @@ export const SidebarChatlist = ({
   error,
   filteredChats,
   setSelectedChat,
-  removeChat
+  removeChat,
 }) => {
+  // Context menu position and target chat state
   const [contextMenu, setContextMenu] = useState(null);
 
+  /**
+   * Opens custom context menu at right-click cursor position.
+   * @param {React.MouseEvent} e
+   * @param {Object} chat
+   */
   const handleContextMenu = (e, chat) => {
     e.preventDefault();
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
-      chat
+      chat,
     });
   };
 
+  /**
+   * Triggers chat deletion API callback.
+   * @param {Object} chat
+   */
   const handleDelete = async (chat) => {
     try {
-      const result = await removeChat(chat.id);
-      console.log(result);
+      if (removeChat) {
+        const result = await removeChat(chat.id);
+        console.log('[SidebarChatlist] Chat deleted:', result);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('[SidebarChatlist] Error deleting chat:', err);
     }
   };
 
+  /**
+   * Handler for editing chat name context menu action.
+   * @param {Object} chat
+   */
   const handleEditName = (chat) => {
-    console.log('Edit name for:', chat);
-    // Add your edit logic/modal here
+    console.log('[SidebarChatlist] Edit name requested for:', chat);
+    // Future modal or inline rename handler hook
   };
 
+  /**
+   * Handler for muting notifications context menu action.
+   * @param {Object} chat
+   */
   const handleMute = (chat) => {
-    console.log('Mute notifications for:', chat);
-    // Add your mute logic here
+    console.log('[SidebarChatlist] Mute notifications requested for:', chat);
+    // Future mute toggle handler hook
   };
 
   return (
@@ -117,7 +137,7 @@ export const SidebarChatlist = ({
         </div>
       )}
 
-      {/* Dynamic Context Menu */}
+      {/* Dynamic Context Menu overlay */}
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
