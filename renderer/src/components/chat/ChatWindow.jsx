@@ -22,6 +22,12 @@ export const ChatWindow = ({ selectedChat }) => {
   // Fetch messages from database for selected chat
   const { messages = [], loading, error } = useMessages(selectedChatId);
 
+  useEffect(()=>{
+    console.log(messages);
+    
+  },[messages])
+
+
   // Active user selection for outgoing/incoming bubble assignment
   const [currentUser, setCurrentUser] = useState(null);
   
@@ -57,16 +63,6 @@ export const ChatWindow = ({ selectedChat }) => {
     return msg.sender === currentUser;
   };
 
-  /**
-   * Ensure messages are displayed in oldest-to-newest chronological order.
-   * Uses toReversed() if available, with a safe slice fallback.
-   */
-  const orderedMessages = useMemo(() => {
-    if (typeof messages.toReversed === "function") {
-      return messages.toReversed();
-    }
-    return [...messages].reverse();
-  }, [messages]);
 
   /**
    * Auto-scroll to bottom of chat window when messages or selected user changes.
@@ -75,7 +71,7 @@ export const ChatWindow = ({ selectedChat }) => {
     if (currentUser) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [orderedMessages, currentUser]);
+  }, [messages, currentUser]);
 
   // State 1: Startup view (no chat selected)
   if (!selectedChatId) {
@@ -113,7 +109,7 @@ export const ChatWindow = ({ selectedChat }) => {
     <ChatView
       selectedChat={selectedChat}
       currentUser={currentUser}
-      orderedMessages={orderedMessages}
+      messages = {messages}
       isOutgoingMessage={isOutgoingMessage}
       messagesEndRef={messagesEndRef}
     />

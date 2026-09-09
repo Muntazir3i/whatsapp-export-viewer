@@ -61,9 +61,20 @@ export class chatRepository {
                 SELECT * FROM messages 
                 WHERE chat_id = ? 
                 ORDER BY id DESC 
-                LIMIT 10
-            )
+                LIMIT 100
+            )   AS subquery
+                ORDER BY id ASC;
         `);
+
+        this.loadMoreMessagesStmt = this.db.prepare(`
+              SELECT * FROM (
+            SELECT * FROM messages 
+        W   HERE chat_id = ? AND id < ?
+            ORDER BY id DESC 
+            LIMIT 100
+            ) AS subquery
+            ORDER BY id ASC;
+            `)
 
         // Pre-compile statement for deleting a chat (cascading deletes associated messages)
         this.deleteChatStmt = this.db.prepare('DELETE FROM chats WHERE id = ?');
@@ -96,6 +107,10 @@ export class chatRepository {
      */
     findMessagesByChatId(chat_id) {
         return this.findMessagesByChatIdStmt.all(chat_id);
+    }
+
+    loadMoreMessages(chat_id,cursorId){
+        return this.loadMoreMessagesStmt.all(chat_id,cursorId)
     }
 
     /**

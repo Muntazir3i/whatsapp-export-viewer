@@ -18,7 +18,7 @@ import { ReadOnlyInput } from './ReadOnlyInput.jsx';
 export const ChatView = ({
   selectedChat,
   currentUser,
-  orderedMessages,
+  messages,
   isOutgoingMessage,
   messagesEndRef,
 }) => {
@@ -35,12 +35,12 @@ export const ChatView = ({
           backgroundSize: '24px 24px',
         }}
       >
-        {orderedMessages.map((msg, index) => {
+        {messages.map((msg, index) => {
           const isOutgoing = isOutgoingMessage(msg);
 
           // Extract date string for date section dividers
           const currentDate = msg.timestamp ? msg.timestamp.split(',')[0] : null;
-          const previousMsg = index > 0 ? orderedMessages[index - 1] : null;
+          const previousMsg = index > 0 ? messages[index - 1] : null;
           const previousDate = previousMsg?.timestamp ? previousMsg.timestamp.split(',')[0] : null;
 
           const showDateDivider = currentDate && currentDate !== previousDate;
