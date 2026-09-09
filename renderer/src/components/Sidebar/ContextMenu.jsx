@@ -13,7 +13,6 @@ import { useEffect, useRef } from 'react';
  * @param {Function} props.onClose - Callback function to close the menu.
  * @param {Function} props.onDelete - Callback to delete the selected chat.
  * @param {Function} props.onEditName - Callback to edit the selected chat name.
- * @param {Function} props.onMute - Callback to mute notifications for the chat.
  * @returns {JSX.Element}
  */
 export const ContextMenu = ({ x, y, chat, onClose, onDelete, onEditName, onMute }) => {
