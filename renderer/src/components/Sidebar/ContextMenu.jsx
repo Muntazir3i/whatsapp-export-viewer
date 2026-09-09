@@ -83,32 +83,7 @@ export const ContextMenu = ({ x, y, chat, onClose, onDelete, onEditName, onMute 
         Edit Name
       </button>
 
-      {/* Action 2: Mute Notifications */}
-      <button
-        type="button"
-        role="menuitem"
-        onClick={() => {
-          onMute(chat);
-          onClose();
-        }}
-        className="w-full text-left px-4 py-2 hover:bg-[#182229] flex items-center gap-3 transition-colors focus:outline-none focus:bg-[#182229]"
-      >
-        <svg
-          className="w-4 h-4 text-[#8696a0]"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-          />
-        </svg>
-        Mute Notifications
-      </button>
+     
 
       <div className="my-1 border-t border-[#222d34]" />
 
