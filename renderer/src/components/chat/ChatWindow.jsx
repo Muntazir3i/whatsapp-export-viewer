@@ -9,7 +9,7 @@ import { ChatView } from "./ChatView.jsx";
 
 /**
  * Controller component for managing chat window states.
- * Handles participant set derivation, pagination state passing, scrolling, and view selection.
+ * Handles participant set derivation, message ordering, scrolling, and view selection.
  *
  * @component
  * @param {Object} props
@@ -19,15 +19,14 @@ import { ChatView } from "./ChatView.jsx";
 export const ChatWindow = ({ selectedChat }) => {
   const selectedChatId = selectedChat?.id;
 
-  // Fetch messages and pagination handlers from useMessages hook
-  const {
-    messages = [],
-    loading,
-    loadingMore,
-    hasMore,
-    loadMoreMessages,
-    error,
-  } = useMessages(selectedChatId);
+  // Fetch messages from database for selected chat
+  const { messages = [], loading, error } = useMessages(selectedChatId);
+
+  useEffect(()=>{
+    console.log(messages);
+    
+  },[messages])
+
 
   // Active user selection for outgoing/incoming bubble assignment
   const [currentUser, setCurrentUser] = useState(null);
@@ -64,23 +63,22 @@ export const ChatWindow = ({ selectedChat }) => {
     return msg.sender === currentUser;
   };
 
+
   /**
-   * Auto-scroll to bottom of chat window ONLY on initial chat switch or user profile selection.
-   * Intentionally excludes loadingMore/messages from dependency array to prevent auto-scrolling
-   * when prepending older paginated messages.
+   * Auto-scroll to bottom of chat window when messages or selected user changes.
    */
   useEffect(() => {
     if (currentUser) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [selectedChatId, currentUser]);
+  }, [messages, currentUser]);
 
   // State 1: Startup view (no chat selected)
   if (!selectedChatId) {
     return <ChatWindowStartup />;
   }
 
-  // State 2: Initial messages loading
+  // State 2: Messages loading
   if (loading) {
     return <ChatWindowLoading selectedChat={selectedChat} />;
   }
@@ -106,17 +104,14 @@ export const ChatWindow = ({ selectedChat }) => {
     );
   }
 
-  // State 6: Main conversation view with pagination controls
+  // State 6: Main conversation view
   return (
     <ChatView
       selectedChat={selectedChat}
       currentUser={currentUser}
-      messages={messages}
+      messages = {messages}
       isOutgoingMessage={isOutgoingMessage}
       messagesEndRef={messagesEndRef}
-      loadingMore={loadingMore}
-      hasMore={hasMore}
-      loadMoreMessages={loadMoreMessages}
     />
   );
 };

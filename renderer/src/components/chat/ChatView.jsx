@@ -1,22 +1,18 @@
-import { Fragment, useRef, useLayoutEffect } from 'react';
+import { Fragment } from 'react';
 import { ChatHeader } from './ChatHeader.jsx';
 import { ReadOnlyInput } from './ReadOnlyInput.jsx';
 
 /**
  * Main active chat view component displaying chat header, message list with date dividers,
- * incoming/outgoing message bubbles, read-only footer input, and pagination controls.
- * Features scroll position preservation when prepending older messages.
+ * incoming/outgoing message bubbles, and read-only footer input.
  *
  * @component
  * @param {Object} props
  * @param {Object} props.selectedChat - Selected chat metadata.
  * @param {string} props.currentUser - Name of the active participant profile.
- * @param {Array<Object>} props.messages - Chronological array of message items.
+ * @param {Array<Object>} props.orderedMessages - Chronological array of message items.
  * @param {Function} props.isOutgoingMessage - Function checking if message is outgoing.
  * @param {React.RefObject} props.messagesEndRef - Ref DOM target for auto-scrolling.
- * @param {boolean} [props.loadingMore] - Indicates if older messages are currently being fetched.
- * @param {boolean} [props.hasMore] - Indicates if older messages are available to load.
- * @param {Function} [props.loadMoreMessages] - Callback function to fetch older messages.
  * @returns {JSX.Element}
  */
 export const ChatView = ({
@@ -25,46 +21,7 @@ export const ChatView = ({
   messages,
   isOutgoingMessage,
   messagesEndRef,
-  loadingMore = false,
-  hasMore = false,
-  loadMoreMessages,
 }) => {
-  const containerRef = useRef(null);
-  const prevScrollHeightRef = useRef(0);
-
-  /**
-   * Preserve scroll position relative to newly prepended older messages.
-   * Adjusts scrollTop before paint to prevent viewport jumping.
-   */
-  useLayoutEffect(() => {
-    if (containerRef.current && prevScrollHeightRef.current > 0) {
-      const newScrollHeight = containerRef.current.scrollHeight;
-      const heightDiff = newScrollHeight - prevScrollHeightRef.current;
-      containerRef.current.scrollTop = heightDiff;
-      prevScrollHeightRef.current = 0;
-    }
-  }, [messages]);
-
-  /**
-   * Helper to capture current container scroll height before triggering loadMoreMessages.
-   */
-  const triggerLoadMore = () => {
-    if (containerRef.current && !loadingMore && hasMore && loadMoreMessages) {
-      prevScrollHeightRef.current = containerRef.current.scrollHeight;
-      loadMoreMessages();
-    }
-  };
-
-  /**
-   * Scroll handler to trigger loadMoreMessages when scrolling to the top of the message list.
-   * @param {React.UIEvent<HTMLDivElement>} e
-   */
-  const handleScroll = (e) => {
-    if (e.currentTarget.scrollTop === 0 && hasMore && !loadingMore) {
-      triggerLoadMore();
-    }
-  };
-
   return (
     <div className="w-full sm:ml-80 md:ml-96 h-screen flex flex-col bg-[#0b141a] overflow-hidden">
       {/* Top sticky chat header */}
@@ -72,29 +29,12 @@ export const ChatView = ({
 
       {/* Scrollable messages container with subtle background pattern */}
       <div
-        ref={containerRef}
-        onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0b141a]"
         style={{
           backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.02) 1px, transparent 1px)`,
           backgroundSize: '24px 24px',
         }}
       >
-        {/* Load older messages button & loading indicator */}
-        {hasMore && (
-          <div className="flex justify-center my-3">
-            <button
-              type="button"
-              onClick={triggerLoadMore}
-              disabled={loadingMore}
-              className="bg-[#202c33] hover:bg-[#2a3942] text-[#00a884] text-xs font-medium px-4 py-2 rounded-full transition-colors disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-[#00a884]"
-            >
-              {loadingMore ? 'Loading older messages...' : 'Load older messages'}
-            </button>
-          </div>
-        )}
-
-        {/* Message bubbles */}
         {messages.map((msg, index) => {
           const isOutgoing = isOutgoingMessage(msg);
 
