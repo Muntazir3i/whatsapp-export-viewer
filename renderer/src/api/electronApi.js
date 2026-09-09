@@ -41,3 +41,11 @@ export function deleteChat(chatId) {
   }
   return window.api.deleteChat(chatId);
 }
+
+export function loadMessages(chatId,cursorId) {
+  if (!window.api?.loadMessages) {
+    console.warn('[electronApi] window.api.loadMessages is unavailable.');
+    return Promise.resolve(false);
+  }
+  return window.api.loadMessages(chatId,cursorId);
+}

@@ -61,4 +61,8 @@ export class chatServices {
     deleteChat(chat_id) {
         return this.chatRepository.deleteChat(chat_id);
     }
+
+    loadMessages(chat_id,cursorId){
+        return this.chatRepository.loadMoreMessages(chat_id,cursorId)
+    }
 }
