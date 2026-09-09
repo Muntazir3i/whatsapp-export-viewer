@@ -15,7 +15,7 @@ import { useEffect, useRef } from 'react';
  * @param {Function} props.onEditName - Callback to edit the selected chat name.
  * @returns {JSX.Element}
  */
-export const ContextMenu = ({ x, y, chat, onClose, onDelete, onEditName, onMute }) => {
+export const ContextMenu = ({ x, y, chat, onClose, onDelete, onEditName }) => {
   const menuRef = useRef(null);
 
   // Close context menu when clicking outside or pressing Escape key
@@ -82,11 +82,9 @@ export const ContextMenu = ({ x, y, chat, onClose, onDelete, onEditName, onMute 
         Edit Name
       </button>
 
-     
-
       <div className="my-1 border-t border-[#222d34]" />
 
-      {/* Action 3: Delete Chat */}
+      {/* Action 2: Delete Chat */}
       <button
         type="button"
         role="menuitem"
