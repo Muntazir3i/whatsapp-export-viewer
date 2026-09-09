@@ -5,8 +5,7 @@
  *
  * This service coordinates one or more repository operations to implement
  * application features such as retrieving chats, loading conversations,
- * searching messages, and deleting chats. It contains business logic but
- * does not interact directly with the user interface or execute raw SQL.
+ * paginating messages, searching messages, and deleting chats.
  */
 
 /**
@@ -43,7 +42,7 @@ export class chatServices {
     }
 
     /**
-     * Retrieves the latest messages for a given chat ID.
+     * Retrieves the latest 100 messages for a given chat ID.
      *
      * @param {number|string} chat_id - The unique identifier of the chat.
      * @returns {Array<Object>} List of recent message objects for the specified chat.
@@ -56,13 +55,31 @@ export class chatServices {
      * Deletes a chat and all associated messages by chat ID.
      *
      * @param {number|string} chat_id - The unique identifier of the chat to delete.
-     * @returns {{ messages: number, chat: number }} Object detailing the count of deleted message and chat records.
+     * @returns {{ chat: number }} Object detailing the count of deleted chat records.
      */
     deleteChat(chat_id) {
         return this.chatRepository.deleteChat(chat_id);
     }
 
-    loadMessages(chat_id,cursorId){
-        return this.chatRepository.loadMoreMessages(chat_id,cursorId)
+    /**
+     * Loads older messages prior to a given message cursor ID for cursor-based pagination.
+     *
+     * @param {number|string} chat_id - The unique identifier of the chat.
+     * @param {number|string} cursorId - The ID of the message threshold (fetches messages with id < cursorId).
+     * @returns {Array<Object>} List of older message objects ordered chronologically.
+     */
+    loadMessages(chat_id, cursorId) {
+        return this.chatRepository.loadMoreMessages(chat_id, cursorId);
+    }
+
+    /**
+     * Alias for `loadMessages` for consistent method naming across service layers.
+     *
+     * @param {number|string} chat_id - The unique identifier of the chat.
+     * @param {number|string} cursorId - The ID of the message threshold.
+     * @returns {Array<Object>} List of older message objects.
+     */
+    loadMoreMessages(chat_id, cursorId) {
+        return this.loadMessages(chat_id, cursorId);
     }
 }

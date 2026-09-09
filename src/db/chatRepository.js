@@ -5,7 +5,7 @@
  *
  * This repository is responsible for interacting with the SQLite database
  * using pre-compiled prepared statements and transactions. It provides methods
- * for retrieving chat and message data and performing atomic deletions.
+ * for retrieving chat and message data, paginating messages, and performing atomic deletions.
  */
 
 /**
@@ -62,19 +62,20 @@ export class chatRepository {
                 WHERE chat_id = ? 
                 ORDER BY id DESC 
                 LIMIT 100
-            )   AS subquery
-                ORDER BY id ASC;
-        `);
-
-        this.loadMoreMessagesStmt = this.db.prepare(`
-              SELECT * FROM (
-            SELECT * FROM messages 
-        W   HERE chat_id = ? AND id < ?
-            ORDER BY id DESC 
-            LIMIT 100
             ) AS subquery
             ORDER BY id ASC;
-            `)
+        `);
+
+        // Pre-compile statement for cursor-based message pagination (fetches up to 100 messages older than cursorId)
+        this.loadMoreMessagesStmt = this.db.prepare(`
+            SELECT * FROM (
+                SELECT * FROM messages 
+                WHERE chat_id = ? AND id < ?
+                ORDER BY id DESC 
+                LIMIT 100
+            ) AS subquery
+            ORDER BY id ASC;
+        `);
 
         // Pre-compile statement for deleting a chat (cascading deletes associated messages)
         this.deleteChatStmt = this.db.prepare('DELETE FROM chats WHERE id = ?');
@@ -100,17 +101,24 @@ export class chatRepository {
     }
 
     /**
-     * Retrieves the latest 10 messages for a specified chat ID.
+     * Retrieves the latest 100 messages for a specified chat ID.
      *
      * @param {number|string} chat_id - The ID of the chat whose messages are being requested.
-     * @returns {Array<Object>} An array containing up to 10 of the most recent message records for the chat.
+     * @returns {Array<Object>} An array containing up to 100 of the most recent message records for the chat.
      */
     findMessagesByChatId(chat_id) {
         return this.findMessagesByChatIdStmt.all(chat_id);
     }
 
-    loadMoreMessages(chat_id,cursorId){
-        return this.loadMoreMessagesStmt.all(chat_id,cursorId)
+    /**
+     * Retrieves up to 100 older messages for a specified chat ID before the given cursor ID.
+     *
+     * @param {number|string} chat_id - The ID of the chat whose messages are being requested.
+     * @param {number|string} cursorId - The message ID threshold (messages with id < cursorId will be fetched).
+     * @returns {Array<Object>} An array containing older message records for the chat ordered chronologically (id ASC).
+     */
+    loadMoreMessages(chat_id, cursorId) {
+        return this.loadMoreMessagesStmt.all(chat_id, cursorId);
     }
 
     /**

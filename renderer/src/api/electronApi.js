@@ -17,7 +17,7 @@ export function getChats() {
 }
 
 /**
- * Fetches messages for a specific chat ID from the SQLite database.
+ * Fetches initial latest messages for a specific chat ID from the SQLite database.
  * @param {string|number} chatId - The ID of the chat whose messages are being requested.
  * @returns {Promise<Array<{id: string|number, sender: string, message: string, timestamp: string}>>}
  */
@@ -42,10 +42,27 @@ export function deleteChat(chatId) {
   return window.api.deleteChat(chatId);
 }
 
-export function loadMessages(chatId,cursorId) {
-  if (!window.api?.loadMessages) {
+/**
+ * Fetches older messages for a specific chat ID prior to cursorId for cursor-based pagination.
+ * @param {string|number} chatId - The ID of the target chat.
+ * @param {string|number} cursorId - The threshold message ID (fetches messages with id < cursorId).
+ * @returns {Promise<Array<{id: string|number, sender: string, message: string, timestamp: string}>>}
+ */
+export function loadMessages(chatId, cursorId) {
+  const apiMethod = window.api?.loadMessages || window.api?.loadMoreMessages;
+  if (!apiMethod) {
     console.warn('[electronApi] window.api.loadMessages is unavailable.');
-    return Promise.resolve(false);
+    return Promise.resolve([]);
   }
-  return window.api.loadMessages(chatId,cursorId);
+  return apiMethod(chatId, cursorId);
+}
+
+/**
+ * Alias for `loadMessages` for API naming flexibility across components.
+ * @param {string|number} chatId
+ * @param {string|number} cursorId
+ * @returns {Promise<Array<Object>>}
+ */
+export function loadMoreMessages(chatId, cursorId) {
+  return loadMessages(chatId, cursorId);
 }
