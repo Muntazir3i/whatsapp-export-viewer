@@ -22,11 +22,6 @@ export const ChatWindow = ({ selectedChat }) => {
   // Fetch messages from database for selected chat
   const { messages = [], loading, error, loadMore } = useMessages(selectedChatId);
 
-  useEffect(()=>{
-    console.log(messages);
-    
-  },[messages])
-
 
   // Active user selection for outgoing/incoming bubble assignment
   const [currentUser, setCurrentUser] = useState(null);
@@ -71,7 +66,7 @@ export const ChatWindow = ({ selectedChat }) => {
     if (currentUser) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, currentUser]);
+  }, [currentUser]);
 
   // State 1: Startup view (no chat selected)
   if (!selectedChatId) {
