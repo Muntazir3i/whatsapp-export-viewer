@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { getMessages } from "../api/electronApi.js";
+import { getMessages, loadMessages } from "../api/electronApi.js";
+
 
 /**
  * Custom hook to asynchronously fetch messages for a specific chat ID.
@@ -13,6 +14,10 @@ export function useMessages(chatId) {
   const [messages, setMessages] = useState([]);
   const [error, setError] = useState(null);
   const [fetchedChatId, setFetchedChatId] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [moreMessages, setMoreMessages] = useState([])
+
+
 
   // Derive loading state: loading is true when a valid chatId is selected but data hasn't finished fetching for it yet.
   const loading = Boolean(chatId && fetchedChatId !== chatId);
@@ -42,9 +47,24 @@ export function useMessages(chatId) {
     };
   }, [chatId]);
 
+
+
+  const loadMore = async (chatId) => {
+
+    let itemId = messages[0].id
+    loadMessages(chatId,itemId)
+    .then((result)=>{
+      setMessages((prev)=> [...result, ...prev]);
+    }).catch((err)=>{
+      console.log(err);
+    })
+
+  }
+
   return {
     messages: chatId ? messages : [],
     loading,
     error: chatId ? error : null,
+    loadMore: loadMore,
   };
 }

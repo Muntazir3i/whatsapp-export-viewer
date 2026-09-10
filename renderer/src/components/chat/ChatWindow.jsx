@@ -20,7 +20,7 @@ export const ChatWindow = ({ selectedChat }) => {
   const selectedChatId = selectedChat?.id;
 
   // Fetch messages from database for selected chat
-  const { messages = [], loading, error } = useMessages(selectedChatId);
+  const { messages = [], loading, error, loadMore } = useMessages(selectedChatId);
 
   useEffect(()=>{
     console.log(messages);
@@ -110,6 +110,7 @@ export const ChatWindow = ({ selectedChat }) => {
       selectedChat={selectedChat}
       currentUser={currentUser}
       messages = {messages}
+      loadMore = {loadMore}
       isOutgoingMessage={isOutgoingMessage}
       messagesEndRef={messagesEndRef}
     />

@@ -19,6 +19,7 @@ export const ChatView = ({
   selectedChat,
   currentUser,
   messages,
+  loadMore,
   isOutgoingMessage,
   messagesEndRef,
 }) => {
@@ -27,14 +28,24 @@ export const ChatView = ({
       {/* Top sticky chat header */}
       <ChatHeader selectedChat={selectedChat} currentUser={currentUser} />
 
+
       {/* Scrollable messages container with subtle background pattern */}
+      
       <div
         className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0b141a]"
         style={{
           backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.02) 1px, transparent 1px)`,
           backgroundSize: '24px 24px',
         }}
+        
       >
+        <div className='flex justify-center mb-1'>
+          <button className='border p-1'
+          onClick={()=>{
+            loadMore(selectedChat.id)
+          }}
+          >Load More</button>
+        </div>
         {messages.map((msg, index) => {
           const isOutgoing = isOutgoingMessage(msg);
 
