@@ -15,7 +15,6 @@ export function useMessages(chatId) {
   const [error, setError] = useState(null);
   const [fetchedChatId, setFetchedChatId] = useState(null);
   const [hasMore, setHasMore] = useState(false);
-  const [moreMessages, setMoreMessages] = useState([])
 
 
 
@@ -47,13 +46,18 @@ export function useMessages(chatId) {
     };
   }, [chatId]);
 
+  if(messages.length >= 100){
+  }
 
 
-  const loadMore = async (chatId) => {
+  const loadMore = (chatId) => {
 
     let itemId = messages[0].id
     loadMessages(chatId,itemId)
     .then((result)=>{
+      if(result.length < 100){
+        setHasMore(false)
+      }
       setMessages((prev)=> [...result, ...prev]);
     }).catch((err)=>{
       console.log(err);
@@ -66,5 +70,6 @@ export function useMessages(chatId) {
     loading,
     error: chatId ? error : null,
     loadMore: loadMore,
+    hasMore: hasMore,
   };
 }
