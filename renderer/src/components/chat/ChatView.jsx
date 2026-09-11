@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { ChatHeader } from './ChatHeader.jsx';
 import { ReadOnlyInput } from './ReadOnlyInput.jsx';
 
@@ -23,7 +23,29 @@ export const ChatView = ({
   hasMore,
   isOutgoingMessage,
   messagesEndRef,
-}) => {
+}
+) => {
+  const [scrollTop, setScrollTop] = useState(0)
+
+  const handleScroll = (event)=>{
+    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget
+    setScrollTop(scrollTop)
+
+     // Optional: Calculate percentage scrolled
+    const scrollPercent = (scrollTop / (scrollHeight - clientHeight)) * 100;
+    console.log(`Scrolled: ${scrollPercent}%`);
+    console.log(clientHeight);
+    console.log(scrollHeight);
+    
+    
+    if(scrollPercent === 0){
+      loadMore(selectedChat.id)
+      
+    }
+    
+  }
+
+
   return (
     <div className="w-full sm:ml-80 md:ml-96 h-screen flex flex-col bg-[#0b141a] overflow-hidden">
       {/* Top sticky chat header */}
@@ -34,6 +56,7 @@ export const ChatView = ({
 
       <div
         className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0b141a]"
+        onScroll={handleScroll}
         style={{
           backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.02) 1px, transparent 1px)`,
           backgroundSize: '24px 24px',
