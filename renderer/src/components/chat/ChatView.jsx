@@ -20,6 +20,7 @@ export const ChatView = ({
   currentUser,
   messages,
   loadMore,
+  hasMore,
   isOutgoingMessage,
   messagesEndRef,
 }) => {
@@ -30,22 +31,22 @@ export const ChatView = ({
 
 
       {/* Scrollable messages container with subtle background pattern */}
-      
+
       <div
         className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0b141a]"
         style={{
           backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.02) 1px, transparent 1px)`,
           backgroundSize: '24px 24px',
         }}
-        
+
       >
-        <div className='flex justify-center mb-1'>
+        {hasMore && <div className='flex justify-center mb-1'>
           <button className='border p-1'
-          onClick={()=>{
-            loadMore(selectedChat.id)
-          }}
+            onClick={() => {
+              loadMore(selectedChat.id)
+            }}
           >Load More</button>
-        </div>
+        </div>}
         {messages.map((msg, index) => {
           const isOutgoing = isOutgoingMessage(msg);
 
@@ -69,16 +70,14 @@ export const ChatView = ({
 
               {/* Message Bubble Container */}
               <div
-                className={`flex ${
-                  isOutgoing ? 'justify-end' : 'justify-start'
-                } w-full`}
+                className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'
+                  } w-full`}
               >
                 <div
-                  className={`relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-1.5 text-sm shadow ${
-                    isOutgoing
+                  className={`relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-1.5 text-sm shadow ${isOutgoing
                       ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none'
                       : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'
-                  }`}
+                    }`}
                 >
                   {/* Sender label for incoming group messages */}
                   {!isOutgoing && msg.sender && (

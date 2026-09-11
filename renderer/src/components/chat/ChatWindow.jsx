@@ -111,6 +111,7 @@ export const ChatWindow = ({ selectedChat }) => {
       currentUser={currentUser}
       messages = {messages}
       loadMore = {loadMore}
+      hasMore = {hasMore}
       isOutgoingMessage={isOutgoingMessage}
       messagesEndRef={messagesEndRef}
     />

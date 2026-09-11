@@ -29,6 +29,10 @@ export function useMessages(chatId) {
     getMessages(chatId)
       .then((result) => {
         if (isMounted) {
+          if (result.length >= 100) {
+            setHasMore(true)
+          }
+
           setMessages(result || []);
           setError(null);
           setFetchedChatId(chatId);
@@ -46,22 +50,20 @@ export function useMessages(chatId) {
     };
   }, [chatId]);
 
-  if(messages.length >= 100){
-  }
 
 
   const loadMore = (chatId) => {
 
     let itemId = messages[0].id
-    loadMessages(chatId,itemId)
-    .then((result)=>{
-      if(result.length < 100){
-        setHasMore(false)
-      }
-      setMessages((prev)=> [...result, ...prev]);
-    }).catch((err)=>{
-      console.log(err);
-    })
+    loadMessages(chatId, itemId)
+      .then((result) => {
+        if(result.length < 100){
+          setHasMore(false)
+        }
+        setMessages((prev) => [...result, ...prev]);
+      }).catch((err) => {
+        console.log(err);
+      })
 
   }
 
