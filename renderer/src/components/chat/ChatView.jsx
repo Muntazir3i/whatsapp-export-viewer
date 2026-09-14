@@ -27,28 +27,30 @@ export const ChatView = ({
 ) => {
   const [oldScrollHeight, setOldScrollHeight] = useState(0)
   const [newScrollTop, setNewScrollTop] = useState(0)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   useEffect(() => {
     console.log(oldScrollHeight)
   }, [oldScrollHeight])
 
-
+  useEffect(() => {
+    if (isLoadingMore) {
+      console.log("Pagination started");
+    }
+  }, [messages])
 
 
 
   const handleScroll = (event) => {
+
     const { scrollTop, scrollHeight, clientHeight } = event.currentTarget
 
 
     if (scrollTop === 0) {
       setOldScrollHeight(scrollHeight)
+      setIsLoadingMore(true)
       loadMore(selectedChat.id)
-      
     }
-
-    
-    
-
   }
 
 

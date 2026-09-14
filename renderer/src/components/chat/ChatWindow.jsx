@@ -22,11 +22,6 @@ export const ChatWindow = ({ selectedChat }) => {
   // Fetch messages from database for selected chat
   const { messages = [], loading, error, loadMore, hasMore } = useMessages(selectedChatId);
 
-  useEffect(()=>{
-    console.log(hasMore);
-    
-  },[messages])
-
 
   // Active user selection for outgoing/incoming bubble assignment
   const [currentUser, setCurrentUser] = useState(null);
