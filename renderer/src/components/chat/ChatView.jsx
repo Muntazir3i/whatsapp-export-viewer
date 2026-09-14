@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { ChatHeader } from './ChatHeader.jsx';
 import { ReadOnlyInput } from './ReadOnlyInput.jsx';
 
@@ -25,24 +25,30 @@ export const ChatView = ({
   messagesEndRef,
 }
 ) => {
-  const [scrollTop, setScrollTop] = useState(0)
+  const [oldScrollHeight, setOldScrollHeight] = useState(0)
+  const [newScrollTop, setNewScrollTop] = useState(0)
 
-  const handleScroll = (event)=>{
+  useEffect(() => {
+    console.log(oldScrollHeight)
+  }, [oldScrollHeight])
+
+
+
+
+
+  const handleScroll = (event) => {
     const { scrollTop, scrollHeight, clientHeight } = event.currentTarget
-    setScrollTop(scrollTop)
 
-     // Optional: Calculate percentage scrolled
-    const scrollPercent = (scrollTop / (scrollHeight - clientHeight)) * 100;
-    console.log(`Scrolled: ${scrollPercent}%`);
-    console.log(clientHeight);
-    console.log(scrollHeight);
-    
-    
-    if(scrollPercent === 0){
+
+    if (scrollTop === 0) {
+      setOldScrollHeight(scrollHeight)
       loadMore(selectedChat.id)
       
     }
+
     
+    
+
   }
 
 
@@ -98,8 +104,8 @@ export const ChatView = ({
               >
                 <div
                   className={`relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-1.5 text-sm shadow ${isOutgoing
-                      ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none'
-                      : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'
+                    ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none'
+                    : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'
                     }`}
                 >
                   {/* Sender label for incoming group messages */}
