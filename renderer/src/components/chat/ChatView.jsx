@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { ChatHeader } from './ChatHeader.jsx';
 import { ReadOnlyInput } from './ReadOnlyInput.jsx';
 
@@ -29,13 +29,16 @@ export const ChatView = ({
   const [newScrollTop, setNewScrollTop] = useState(0)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
 
-  useEffect(() => {
-    console.log(oldScrollHeight)
-  }, [oldScrollHeight])
+  const scrollDivContainer = useRef(null)
+
 
   useEffect(() => {
     if (isLoadingMore) {
       console.log("Pagination started");
+      let heightDifference = scrollDivContainer.current.scrollHeight - oldScrollHeight ;
+      console.log(heightDifference);
+      
+      
     }
   }, [messages])
 
@@ -65,6 +68,7 @@ export const ChatView = ({
       <div
         className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0b141a]"
         onScroll={handleScroll}
+        ref={scrollDivContainer}
         style={{
           backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.02) 1px, transparent 1px)`,
           backgroundSize: '24px 24px',
