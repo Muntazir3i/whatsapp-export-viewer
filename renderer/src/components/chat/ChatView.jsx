@@ -34,11 +34,10 @@ export const ChatView = ({
 
   useEffect(() => {
     if (isLoadingMore) {
-      console.log("Pagination started");
-      let heightDifference = scrollDivContainer.current.scrollHeight - oldScrollHeight ;
-      console.log(heightDifference);
-      
-      
+      let heightDifference = scrollDivContainer.current.scrollHeight - oldScrollHeight;
+      setIsLoadingMore(false)
+      scrollDivContainer.current.scrollTop = heightDifference;
+
     }
   }, [messages])
 
