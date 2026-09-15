@@ -88,9 +88,9 @@ export const ChatView = ({
       {/* Top sticky chat header */}
       <ChatHeader selectedChat={selectedChat} currentUser={currentUser} />
 
-      {/* Scrollable messages container with subtle background pattern */}
+      {/* Scrollable messages container with overflow protection against horizontal scrolling */}
       <div
-        className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0b141a]"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3 bg-[#0b141a]"
         onScroll={handleScroll}
         ref={scrollDivContainer}
         style={{
@@ -149,12 +149,13 @@ export const ChatView = ({
                 </div>
               )}
 
-              {/* Message Bubble Container */}
+              {/* Message Bubble Row Container */}
               <div
                 className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'} w-full`}
               >
+                {/* Message Bubble Box with min-w-0 and break-words to prevent horizontal overflow */}
                 <div
-                  className={`relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-1.5 text-sm shadow ${
+                  className={`relative max-w-[85%] sm:max-w-[70%] min-w-0 rounded-lg px-3 py-1.5 text-sm shadow ${
                     isOutgoing
                       ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none'
                       : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'
@@ -162,14 +163,14 @@ export const ChatView = ({
                 >
                   {/* Sender label for incoming group messages */}
                   {!isOutgoing && msg.sender && (
-                    <span className="block text-xs font-semibold text-[#53bdeb] mb-0.5">
+                    <span className="block text-xs font-semibold text-[#53bdeb] mb-0.5 truncate">
                       {msg.sender}
                     </span>
                   )}
 
                   {/* Message body text and timestamp footer */}
-                  <div className="flex items-end gap-3">
-                    <p className="whitespace-pre-wrap break-words leading-relaxed">
+                  <div className="flex items-end gap-3 min-w-0">
+                    <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed min-w-0 flex-1">
                       {msg.message}
                     </p>
 
