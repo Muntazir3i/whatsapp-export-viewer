@@ -16,6 +16,14 @@ export function getChats() {
   return window.api.getChats();
 }
 
+export function getFileDetails(){
+  if (!window.api?.getFileDetails) {
+    console.warn('[electronApi] window.api.getFileDetails is unavailable.');
+    return Promise.resolve("Failed to load file path");
+  }
+  return window.api.getFileDetails();
+}
+
 /**
  * Fetches initial latest messages for a specific chat ID from the SQLite database.
  * @param {string|number} chatId - The ID of the chat whose messages are being requested.

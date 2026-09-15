@@ -6,6 +6,7 @@ import { createDatabaseConnection } from "../src/db/database.js";
 import { chatServices } from "../src/services/chatService.js";
 import { createSchema } from "../src/db/schema.js";
 import { registerChatHandlers } from "./ipc/chatHandlers.js";
+import { registerImportHandlers } from "./ipc/importHandlers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +36,7 @@ function createWindow() {
 }
 
 registerChatHandlers(cs);
+registerImportHandlers();
 
 app.whenReady().then(() => {
     createWindow();

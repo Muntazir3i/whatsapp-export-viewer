@@ -5,6 +5,9 @@ const { contextBridge, ipcRenderer } = require("electron");
  * Accessible in renderer context via `window.api`.
  */
 contextBridge.exposeInMainWorld("api", {
+
+    getFileDetails : () => ipcRenderer.invoke("get-file-details"),
+
     /**
      * Fetches all chats.
      * @returns {Promise<Array<Object>>}
