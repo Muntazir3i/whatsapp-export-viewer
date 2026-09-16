@@ -16,14 +16,17 @@ export function getChats() {
   return window.api.getChats();
 }
 
-export function importChat(){
+/**
+ * Prompts native file picker dialog and executes import ETL pipeline via IPC.
+ * @returns {Promise<{ success: boolean, canceled?: boolean, error?: string, filePath?: string }>}
+ */
+export function importChat() {
   if (!window.api?.importChat) {
     console.warn('[electronApi] window.api.importChat is unavailable.');
-    return Promise.resolve("Failed to load file path");
+    return Promise.resolve({ success: false, error: 'IPC unavailable' });
   }
   return window.api.importChat();
 }
-
 
 /**
  * Fetches initial latest messages for a specific chat ID from the SQLite database.

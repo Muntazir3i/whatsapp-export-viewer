@@ -5,9 +5,11 @@ const { contextBridge, ipcRenderer } = require("electron");
  * Accessible in renderer context via `window.api`.
  */
 contextBridge.exposeInMainWorld("api", {
-
-    importChat : () => ipcRenderer.invoke("import-chat"),
-
+    /**
+     * Opens native file picker dialog and executes ETL pipeline to import a WhatsApp chat export (.zip or .txt).
+     * @returns {Promise<{ success: boolean, canceled?: boolean, error?: string, filePath?: string }>}
+     */
+    importChat: () => ipcRenderer.invoke("import-chat"),
 
     /**
      * Fetches all chats.

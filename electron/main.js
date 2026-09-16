@@ -36,7 +36,7 @@ function createWindow() {
 }
 
 registerChatHandlers(cs);
-registerImportHandlers();
+registerImportHandlers(db);
 
 app.whenReady().then(() => {
     createWindow();

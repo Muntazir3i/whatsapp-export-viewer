@@ -11,7 +11,7 @@ import { grabFileLocation, extractZip, findChatFile } from "./services/importCha
 
 const BATCH_SIZE = 1000;
 
-export async function main(fileName) {
+export async function main(fileName,db) {
     // 1. Initialize Console UI Progress Reporter
     const progressReporter = new ConsoleProgressReporter();
 
@@ -29,10 +29,10 @@ export async function main(fileName) {
     }
 
     // 3. Initialize SQLite Database Connection & Schema
-    const db = createDatabaseConnection("chats.db");
-    createSchema(db);
+    // const db = createDatabaseConnection("chats.db");
+    // createSchema(db);
 
-    // 4. Initialize Data Repository
+    // // 4. Initialize Data Repository
     const repository = new ChatRepository(db);
 
     // 5. Register Chat Session Metadata
