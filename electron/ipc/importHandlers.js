@@ -1,4 +1,5 @@
 import { ipcMain, dialog } from "electron";
+import { main } from "../../src/index.js";
 
 
 async function showDialogue() {
@@ -9,10 +10,16 @@ async function showDialogue() {
   return result
 }
 
-export function registerImportHandlers(){
+export function registerImportHandlers() {
 
-    ipcMain.handle("get-file-details", async () => {
-       let result = await showDialogue()
-       return result
+  ipcMain.handle("import-chat", async () => {
+    let result = await showDialogue()
+
+    await main(result.filePaths[0]).catch((err) => {
+      console.error("\n❌ Pipeline execution failed:", err.message || err);
+      process.exit(1);
     });
+    
+  });
+
 }

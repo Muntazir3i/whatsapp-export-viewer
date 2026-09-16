@@ -5,24 +5,17 @@
  * @returns {JSX.Element}
  */
 
-import { getFileDetails } from "../../api/electronApi.js";
+import { importChat } from "../../api/electronApi.js";
 
 const handleImport = async () => {
-  const result = await getFileDetails();
+  await importChat();
 
-  console.log(result.filePaths[0]);
+  
 };
 
 
 export const SidebarHeader = () => {
 
-  const handleFileChange = (event) => {
-    const [file] = event.target.files;
-    console.log(file);
-
-
-
-  }
   return (
     <header className="h-14 bg-[#202c33] px-4 flex items-center justify-between border-b border-[#222d34] flex-shrink-0">
       <div className="flex items-center gap-3">

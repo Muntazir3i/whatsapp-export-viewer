@@ -6,7 +6,8 @@ const { contextBridge, ipcRenderer } = require("electron");
  */
 contextBridge.exposeInMainWorld("api", {
 
-    getFileDetails : () => ipcRenderer.invoke("get-file-details"),
+    importChat : () => ipcRenderer.invoke("import-chat"),
+
 
     /**
      * Fetches all chats.

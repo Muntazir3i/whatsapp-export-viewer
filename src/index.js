@@ -11,12 +11,12 @@ import { grabFileLocation, extractZip, findChatFile } from "./services/importCha
 
 const BATCH_SIZE = 1000;
 
-async function main() {
+export async function main(fileName) {
     // 1. Initialize Console UI Progress Reporter
     const progressReporter = new ConsoleProgressReporter();
 
     // 2. Resolve Export File Location (ZIP or TXT)
-    const { filePath, importDir, isZip } = await grabFileLocation();
+    const { filePath, importDir, isZip } = await grabFileLocation(fileName);
     let chatFilePath = filePath;
 
     if (isZip) {
@@ -69,7 +69,4 @@ async function main() {
     progressReporter.complete();
 }
 
-main().catch((err) => {
-    console.error("\n❌ Pipeline execution failed:", err.message || err);
-    process.exit(1);
-});
+

@@ -16,13 +16,9 @@ import { extractChatFileInfo } from "../parser/importer.js";
  *
  * @returns {Promise<{ filePath: string, importDir: string, isZip: boolean }>} File location descriptor object.
  */
-export async function grabFileLocation() {
-    const rl = readline.createInterface({ input, output });
-
-    const rawPath = await rl.question("Enter WhatsApp export file path (.zip or .txt): ");
-    rl.close();
-
-    const targetPath = rawPath.trim().replace(/^['"]|['"]$/g, ""); // strip accidental quotes
+export async function grabFileLocation(filePath) {
+    
+    const targetPath = filePath.trim().replace(/^['"]|['"]$/g, ""); // strip accidental quotes
 
     if (!targetPath) {
         throw new Error("No file path provided.");
