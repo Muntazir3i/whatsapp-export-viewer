@@ -17,9 +17,8 @@ export function registerImportHandlers() {
 
     await main(result.filePaths[0]).catch((err) => {
       console.error("\n❌ Pipeline execution failed:", err.message || err);
-      process.exit(1);
     });
-    
+
   });
 
 }
