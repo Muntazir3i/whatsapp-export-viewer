@@ -10,7 +10,7 @@ import { getFileDetails } from "../../api/electronApi.js";
 const handleImport = async () => {
   const result = await getFileDetails();
 
-  console.log(result);
+  console.log(result.filePaths[0]);
 };
 
 

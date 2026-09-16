@@ -6,12 +6,13 @@ async function showDialogue() {
     properties: ["openFile"]
   });
 
-  console.log(result);
+  return result
 }
 
 export function registerImportHandlers(){
 
     ipcMain.handle("get-file-details", async () => {
-       await showDialogue();
+       let result = await showDialogue()
+       return result
     });
 }
