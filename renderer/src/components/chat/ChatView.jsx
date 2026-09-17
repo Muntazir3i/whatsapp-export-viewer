@@ -53,7 +53,7 @@ export const ChatView = ({
       setIsLoadingMore(false);
       scrollDivContainer.current.scrollTop = heightDifference;
     }
-  }, [messages, isLoadingMore, oldScrollHeight]);
+  }, [messages]);
 
   /**
    * PAGINATION SCROLL LISTENER:
