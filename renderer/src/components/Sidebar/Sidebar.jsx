@@ -45,6 +45,7 @@ export const Sidebar = ({ setSelectedChat }) => {
     const result = await deleteChat(chatId);
     if (result) {
       refetch();
+      setSelectedChat(null)
     }
     return result;
   }
