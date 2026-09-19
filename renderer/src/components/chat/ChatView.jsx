@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { ChatHeader } from './ChatHeader.jsx';
 import { ReadOnlyInput } from './ReadOnlyInput.jsx';
-import {LoadMoreButton} from './LoadMoreButton.jsx';
+import { LoadMoreButton } from './LoadMoreButton.jsx';
+import { ChatMessage } from './ChatMessage.jsx';
 
 /**
  * Main active chat view component displaying chat header, message list with date dividers,
@@ -100,7 +101,7 @@ export const ChatView = ({
         }}
       >
         {/* PAGINATION UI: Rendered at the top of message history when older messages exist in SQLite database */}
-        {hasMore && <LoadMoreButton handleLoadMore = {handleLoadMore} isLoadingMore = {isLoadingMore} />}
+        {hasMore && <LoadMoreButton handleLoadMore={handleLoadMore} isLoadingMore={isLoadingMore} />}
 
         {/* Message items list rendering */}
         {messages.map((msg, index) => {
@@ -113,50 +114,13 @@ export const ChatView = ({
 
           const showDateDivider = currentDate && currentDate !== previousDate;
 
-          return (
-            <Fragment key={msg.id ?? `${index}-${msg.timestamp}`}>
-              {/* Sticky date section header */}
-              {showDateDivider && (
-                <div className="flex justify-center my-3">
-                  <span className="bg-[#182229] text-[#8696a0] text-xs px-3 py-1 rounded-md font-medium shadow-sm">
-                    {currentDate}
-                  </span>
-                </div>
-              )}
-
-              {/* Message Bubble Row Container */}
-              <div
-                className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'} w-full`}
-              >
-                {/* Message Bubble Box with min-w-0 and break-words to prevent horizontal overflow */}
-                <div
-                  className={`relative max-w-[85%] sm:max-w-[70%] min-w-0 rounded-lg px-3 py-1.5 text-sm shadow ${
-                    isOutgoing
-                      ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none'
-                      : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'
-                  }`}
-                >
-                  {/* Sender label for incoming group messages */}
-                  {!isOutgoing && msg.sender && (
-                    <span className="block text-xs font-semibold text-[#53bdeb] mb-0.5 truncate">
-                      {msg.sender}
-                    </span>
-                  )}
-
-                  {/* Message body text and timestamp footer */}
-                  <div className="flex items-end gap-3 min-w-0">
-                    <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed min-w-0 flex-1">
-                      {msg.message}
-                    </p>
-
-                    <span className="text-[10px] text-[#8696a0] whitespace-nowrap flex-shrink-0">
-                      {msg.timestamp}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Fragment>
-          );
+          return (<ChatMessage
+            key={msg.id ?? `${index}-${msg.timestamp}`}
+            msg={msg}
+            isOutgoing={isOutgoing}
+            showDateDivider={showDateDivider}
+            currentDate={currentDate}
+          />);
         })}
 
         {/* Target element for auto-scroll into view on initial load */}
