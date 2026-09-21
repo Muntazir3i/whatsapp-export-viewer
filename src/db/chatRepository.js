@@ -77,6 +77,15 @@ export class chatRepository {
             ORDER BY id ASC;
         `);
 
+        // Pre-compile statement to check if the chat exist for not
+
+        this.checkChatExistStmt = this.db.prepare(`
+            SELECT 1 
+                FROM chats 
+                WHERE name = ?
+                LIMIT 1;
+        `)
+
         // Pre-compile statement for deleting a chat (cascading deletes associated messages)
         this.deleteChatStmt = this.db.prepare('DELETE FROM chats WHERE id = ?');
     }
@@ -132,6 +141,10 @@ export class chatRepository {
     deleteChat(chat_id) {
         const result = this.deleteChatStmt.run(chat_id);
         return { chat: result.changes };
+    }
+
+    checkChatExist(chat_name){
+        return this.checkChatExistStmt.get(chat_name)
     }
 
     /**
