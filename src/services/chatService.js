@@ -72,6 +72,11 @@ export class chatServices {
         return this.chatRepository.loadMoreMessages(chat_id, cursorId);
     }
 
+
+    checkChat(chat_name){
+        return this.chatRepository.checkChatExist(chat_name);
+    }
+
     /**
      * Alias for `loadMessages` for consistent method naming across service layers.
      *
