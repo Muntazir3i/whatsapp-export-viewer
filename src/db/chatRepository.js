@@ -144,7 +144,7 @@ export class chatRepository {
     }
 
     checkChatExist(chat_name){
-        return this.checkChatExistStmt.get(chat_name)
+        return !!this.checkChatExistStmt.get(chat_name);
     }
 
     /**

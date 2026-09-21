@@ -7,6 +7,7 @@
 import { createDatabaseConnection } from "./db/database.js";
 import { createSchema, ChatRepository } from "./db/schema.js";
 import { extractChatMetadata, streamChatMessages, ConsoleProgressReporter } from "./parser/importer.js";
+import { chatRepository } from "./db/chatRepository.js";
 import { grabFileLocation, extractZip, findChatFile } from "./services/importChat.js";
 
 const BATCH_SIZE = 1000;
@@ -35,38 +36,47 @@ export async function main(fileName,db) {
     // // 4. Initialize Data Repository
     const repository = new ChatRepository(db);
 
+    // 4. Initialize DataBase Operation Repository
+    const dbOperationRespository = new chatRepository(db)
+
     // 5. Register Chat Session Metadata
     const chatMetadata = extractChatMetadata(chatFilePath);
-    const chatRecord = repository.createChat(chatMetadata);
-    const chatId = chatRecord.id;
 
-    // 6. Stream and Batch Message Insertions
-    let messageBuffer = [];
+    const exist = dbOperationRespository.checkChatExist(chatMetadata.name)
 
-    await streamChatMessages(
-        chatFilePath,
-        async (parsedMessage) => {
-            messageBuffer.push({
-                chat_id: chatId,
-                ...parsedMessage
-            });
+    console.log(exist);
+    
 
-            if (messageBuffer.length >= BATCH_SIZE) {
-                repository.insertBatch(messageBuffer);
-                messageBuffer = [];
-            }
-        },
-        (bytesRead, totalBytes) => {
-            progressReporter.update(bytesRead, totalBytes);
-        }
-    );
+    // const chatRecord = repository.createChat(chatMetadata);
+    // const chatId = chatRecord.id;
 
-    // 7. Flush Remaining Buffer Tail & Complete
-    if (messageBuffer.length > 0) {
-        repository.insertBatch(messageBuffer);
-    }
+    // // 6. Stream and Batch Message Insertions
+    // let messageBuffer = [];
 
-    progressReporter.complete();
+    // await streamChatMessages(
+    //     chatFilePath,
+    //     async (parsedMessage) => {
+    //         messageBuffer.push({
+    //             chat_id: chatId,
+    //             ...parsedMessage
+    //         });
+
+    //         if (messageBuffer.length >= BATCH_SIZE) {
+    //             repository.insertBatch(messageBuffer);
+    //             messageBuffer = [];
+    //         }
+    //     },
+    //     (bytesRead, totalBytes) => {
+    //         progressReporter.update(bytesRead, totalBytes);
+    //     }
+    // );
+
+    // // 7. Flush Remaining Buffer Tail & Complete
+    // if (messageBuffer.length > 0) {
+    //     repository.insertBatch(messageBuffer);
+    // }
+
+    // progressReporter.complete();
 }
 
 
