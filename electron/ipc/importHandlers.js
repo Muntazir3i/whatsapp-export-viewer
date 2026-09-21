@@ -39,10 +39,11 @@ export function registerImportHandlers(db) {
       const selectedFilePath = dialogResult.filePaths[0];
 
       // 3. Execute ETL parsing & database insertion pipeline
-      await main(selectedFilePath, db);
+      let result = await main(selectedFilePath, db);  
 
+    
       // 4. Return success result object
-      return { success: true, filePath: selectedFilePath };
+      return { exist: result, success: true, filePath: selectedFilePath };
     } catch (err) {
       console.error("\n❌ Import pipeline execution failed:", err.message || err);
       return { success: false, error: err.message || String(err) };

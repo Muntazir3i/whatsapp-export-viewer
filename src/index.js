@@ -12,7 +12,7 @@ import { grabFileLocation, extractZip, findChatFile } from "./services/importCha
 
 const BATCH_SIZE = 1000;
 
-export async function main(fileName,db) {
+export async function main(fileName, db) {
     // 1. Initialize Console UI Progress Reporter
     const progressReporter = new ConsoleProgressReporter();
 
@@ -44,39 +44,43 @@ export async function main(fileName,db) {
 
     const exist = dbOperationRespository.checkChatExist(chatMetadata.name)
 
-    console.log(exist);
-    
+    if (exist) {
+        return exist
+    } else {
+        const chatRecord = repository.createChat(chatMetadata);
+        const chatId = chatRecord.id;
 
-    // const chatRecord = repository.createChat(chatMetadata);
-    // const chatId = chatRecord.id;
+        // 6. Stream and Batch Message Insertions
+        let messageBuffer = [];
 
-    // // 6. Stream and Batch Message Insertions
-    // let messageBuffer = [];
+        await streamChatMessages(
+            chatFilePath,
+            async (parsedMessage) => {
+                messageBuffer.push({
+                    chat_id: chatId,
+                    ...parsedMessage
+                });
 
-    // await streamChatMessages(
-    //     chatFilePath,
-    //     async (parsedMessage) => {
-    //         messageBuffer.push({
-    //             chat_id: chatId,
-    //             ...parsedMessage
-    //         });
+                if (messageBuffer.length >= BATCH_SIZE) {
+                    repository.insertBatch(messageBuffer);
+                    messageBuffer = [];
+                }
+            },
+            (bytesRead, totalBytes) => {
+                progressReporter.update(bytesRead, totalBytes);
+            }
+        );
 
-    //         if (messageBuffer.length >= BATCH_SIZE) {
-    //             repository.insertBatch(messageBuffer);
-    //             messageBuffer = [];
-    //         }
-    //     },
-    //     (bytesRead, totalBytes) => {
-    //         progressReporter.update(bytesRead, totalBytes);
-    //     }
-    // );
+        // 7. Flush Remaining Buffer Tail & Complete
+        if (messageBuffer.length > 0) {
+            repository.insertBatch(messageBuffer);
+        }
 
-    // // 7. Flush Remaining Buffer Tail & Complete
-    // if (messageBuffer.length > 0) {
-    //     repository.insertBatch(messageBuffer);
-    // }
+        progressReporter.complete();
+    }
 
-    // progressReporter.complete();
+
+
 }
 
 
