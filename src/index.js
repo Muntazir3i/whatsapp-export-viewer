@@ -4,8 +4,7 @@
  * Instantiates components and orchestrates the ETL pipeline (Extract, Transform, Load).
  */
 
-import { createDatabaseConnection } from "./db/database.js";
-import { createSchema, ChatRepository } from "./db/schema.js";
+import { ChatRepository } from "./db/schema.js";
 import { extractChatMetadata, streamChatMessages, ConsoleProgressReporter } from "./parser/importer.js";
 import { chatRepository } from "./db/chatRepository.js";
 import { grabFileLocation, extractZip, findChatFile } from "./services/importChat.js";
@@ -28,10 +27,6 @@ export async function main(fileName, db) {
         progressReporter.completeZip();
         chatFilePath = await findChatFile(importDir);
     }
-
-    // 3. Initialize SQLite Database Connection & Schema
-    // const db = createDatabaseConnection("chats.db");
-    // createSchema(db);
 
     // // 4. Initialize Data Repository
     const repository = new ChatRepository(db);
