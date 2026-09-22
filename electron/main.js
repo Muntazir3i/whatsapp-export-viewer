@@ -30,8 +30,7 @@ function createWindow() {
             nodeIntegration: false
         }
     });
-
-    // win.loadFile(path.join(__dirname, "test.html"));
+    
     win.loadURL("http://localhost:5174/")
 }
 

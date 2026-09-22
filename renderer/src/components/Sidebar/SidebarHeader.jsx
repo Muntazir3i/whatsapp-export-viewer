@@ -26,6 +26,8 @@ export const SidebarHeader = ({ onImportSuccess }) => {
 
     try {
       const result = await importChat();
+      console.log(result);
+      
 
       setExist(result?.exist ?? false);
 
