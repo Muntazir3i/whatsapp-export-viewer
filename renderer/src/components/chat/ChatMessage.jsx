@@ -1,5 +1,3 @@
-import React from 'react'
-
 export const ChatMessage = ({msg, isOutgoing, showDateDivider, currentDate}) => {
   return (
     <>

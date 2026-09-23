@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useState } from "react";
 
 export const ChatExistDialog = ({ setExist, onRename }) => {
   const [rename, setRename] = useState(false);

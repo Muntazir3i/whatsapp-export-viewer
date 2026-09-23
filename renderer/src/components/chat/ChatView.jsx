@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChatHeader } from './ChatHeader.jsx';
 import { ReadOnlyInput } from './ReadOnlyInput.jsx';
 import { LoadMoreButton } from './LoadMoreButton.jsx';

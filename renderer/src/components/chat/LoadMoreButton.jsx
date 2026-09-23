@@ -1,5 +1,3 @@
-import React from 'react'
-
 export const LoadMoreButton = ({handleLoadMore, isLoadingMore }) => {
     return (
         <div className="flex justify-center my-2">
