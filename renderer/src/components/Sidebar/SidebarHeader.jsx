@@ -30,9 +30,9 @@ export const SidebarHeader = ({ onImportSuccess }) => {
       console.log(result);
       
       setExist(result?.exist ?? false);
-      setPath(result.filePath)
+      setPath(result?.filePath || "");
 
-      if (result?.success) {
+      if (result?.success && !result?.exist) {
         console.log(
           "[SidebarHeader] Chat imported successfully:",
           result.filePath
@@ -128,7 +128,7 @@ export const SidebarHeader = ({ onImportSuccess }) => {
       {isImporting && (<ImportingDialog />)}
 
       {/* Chat Already Exists Dialog */}
-      {exist && (<ChatExistDialog setExist={setExist} path={path} />)}
+      {exist && (<ChatExistDialog setExist={setExist} path={path} onImportSuccess={onImportSuccess} />)}
     </>
   );
 };

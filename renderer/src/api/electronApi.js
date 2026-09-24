@@ -18,7 +18,7 @@ export function getChats() {
 
 /**
  * Prompts native file picker dialog and executes import ETL pipeline via IPC.
- * @returns {Promise<{ success: boolean, canceled?: boolean, error?: string, filePath?: string }>}
+ * @returns {Promise<{ success: boolean, exist?: boolean, canceled?: boolean, error?: string, filePath?: string }>}
  */
 export function importChat() {
   if (!window.api?.importChat) {
@@ -28,12 +28,18 @@ export function importChat() {
   return window.api.importChat();
 }
 
+/**
+ * Executes import ETL pipeline with a custom chat name via IPC bridge.
+ * @param {string} filePath - Absolute file system path to export file.
+ * @param {string} customName - Overridden name for the chat session.
+ * @returns {Promise<{ success: boolean, exist?: boolean, error?: string, filePath?: string }>}
+ */
 export function importChatWithName(filePath, customName) {
   if (!window.api?.importChatWithName) {
     console.warn('[electronApi] window.api.importChatWithName is unavailable.');
     return Promise.resolve({ success: false, error: 'IPC unavailable' });
   }
-  return window.api.importChatWithName(filePath,customName);
+  return window.api.importChatWithName(filePath, customName);
 }
 
 /**
