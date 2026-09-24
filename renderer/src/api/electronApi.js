@@ -28,6 +28,14 @@ export function importChat() {
   return window.api.importChat();
 }
 
+export function importChatWithName(filePath, customName) {
+  if (!window.api?.importChatWithName) {
+    console.warn('[electronApi] window.api.importChatWithName is unavailable.');
+    return Promise.resolve({ success: false, error: 'IPC unavailable' });
+  }
+  return window.api.importChatWithName(filePath,customName);
+}
+
 /**
  * Fetches initial latest messages for a specific chat ID from the SQLite database.
  * @param {string|number} chatId - The ID of the chat whose messages are being requested.

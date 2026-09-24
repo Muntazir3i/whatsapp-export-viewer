@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useState } from "react";
+import { importChatWithName } from "../../api/electronApi.js";
 
 export const ChatExistDialog = ({ setExist, path,  onRename }) => {
   const [rename, setRename] = useState(false);
@@ -11,15 +12,21 @@ export const ChatExistDialog = ({ setExist, path,  onRename }) => {
     setExist(false);
   };
 
-  const handleRename = () => {
+  const handleRename = async () => {
     const trimmedName = newName.trim();
 
     if (!trimmedName) return;
 
-    // For now, just send the value back to the parent.
     setNewName(trimmedName)
-    
+
     setExist(false);
+
+    try {
+      const result = await importChatWithName(path,trimmedName)
+      console.log(result);
+    } catch (error) {
+      console.log(error);
+    }
 
     handleClose()
   };
