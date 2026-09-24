@@ -14,6 +14,7 @@ import { ChatExistDialog } from "./ChatExistDialog.jsx";
 export const SidebarHeader = ({ onImportSuccess }) => {
   const [isImporting, setIsImporting] = useState(false);
   const [exist, setExist] = useState(false);
+  const [path, setPath] = useState("");
 
   /**
    * Triggers native file dialog import pipeline and refreshes chat list on success.
@@ -28,8 +29,8 @@ export const SidebarHeader = ({ onImportSuccess }) => {
       const result = await importChat();
       console.log(result);
       
-
       setExist(result?.exist ?? false);
+      setPath(result.filePath)
 
       if (result?.success) {
         console.log(
@@ -127,7 +128,7 @@ export const SidebarHeader = ({ onImportSuccess }) => {
       {isImporting && (<ImportingDialog />)}
 
       {/* Chat Already Exists Dialog */}
-      {exist && (<ChatExistDialog setExist={setExist} />)}
+      {exist && (<ChatExistDialog setExist={setExist} path={path} />)}
     </>
   );
 };

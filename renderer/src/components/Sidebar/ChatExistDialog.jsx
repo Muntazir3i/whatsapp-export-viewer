@@ -1,6 +1,7 @@
+import { useEffect } from "react";
 import { useState } from "react";
 
-export const ChatExistDialog = ({ setExist, onRename }) => {
+export const ChatExistDialog = ({ setExist, path,  onRename }) => {
   const [rename, setRename] = useState(false);
   const [newName, setNewName] = useState("");
 
@@ -17,7 +18,7 @@ export const ChatExistDialog = ({ setExist, onRename }) => {
 
     // For now, just send the value back to the parent.
     setNewName(trimmedName)
-  
+    
     setExist(false);
 
     handleClose()
