@@ -11,7 +11,7 @@ import { grabFileLocation, extractZip, findChatFile } from "./services/importCha
 
 const BATCH_SIZE = 1000;
 
-export async function main(fileName, db) {
+export async function main(fileName, db, customName) {
     // 1. Initialize Console UI Progress Reporter
     const progressReporter = new ConsoleProgressReporter();
 
@@ -38,6 +38,42 @@ export async function main(fileName, db) {
     const chatMetadata = extractChatMetadata(chatFilePath);
 
     const exist = dbOperationRespository.checkChatExist(chatMetadata.name)
+
+    if (customName) {
+        chatMetadata.name = customName
+        const chatRecord = repository.createChat(chatMetadata);
+        const chatId = chatRecord.id;
+
+        // 6. Stream and Batch Message Insertions
+        let messageBuffer = [];
+
+        await streamChatMessages(
+            chatFilePath,
+            async (parsedMessage) => {
+                messageBuffer.push({
+                    chat_id: chatId,
+                    ...parsedMessage
+                });
+
+                if (messageBuffer.length >= BATCH_SIZE) {
+                    repository.insertBatch(messageBuffer);
+                    messageBuffer = [];
+                }
+            },
+            (bytesRead, totalBytes) => {
+                progressReporter.update(bytesRead, totalBytes);
+            }
+        );
+
+        // 7. Flush Remaining Buffer Tail & Complete
+        if (messageBuffer.length > 0) {
+            repository.insertBatch(messageBuffer);
+        }
+
+        progressReporter.complete();
+        return false;
+    }
+
 
     if (exist) {
         return exist

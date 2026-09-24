@@ -53,11 +53,11 @@ export function registerImportHandlers(db) {
   ipcMain.handle("import-chat-with-name", async (_ , filePath , customName) => {
     try {
 
-      let result = await main(filePath, customName, db);
+      let result = await main(filePath, db, customName);
 
-      return { exist: result, success: true, filePath: selectedFilePath };
+      return { exist: result, success: true, filePath: filePath };
 
-    } catch (error) {
+    } catch (err) {
 
       console.error("\n❌ Import pipeline execution failed:", err.message || err);
 
