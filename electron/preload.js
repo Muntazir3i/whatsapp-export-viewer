@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld("api", {
      */
     importChat: () => ipcRenderer.invoke("import-chat"),
 
+
+    importChatWithName: (filePath, customName) => ipcRenderer.invoke("import-chat-with-name", filePath, customName),
+
     /**
      * Fetches all chats.
      * @returns {Promise<Array<Object>>}
