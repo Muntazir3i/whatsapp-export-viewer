@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ContextMenu } from './ContextMenu.jsx';
+import { DeleteChatDialog } from './DeleteChatDialog.jsx';
 
 /**
  * Component to render the scrollable list of filtered chats in the sidebar.
@@ -25,6 +26,9 @@ export const SidebarChatlist = ({
   // Context menu position and target chat state
   const [contextMenu, setContextMenu] = useState(null);
 
+  // Target chat object pending confirmation in DeleteChatDialog modal
+  const [chatToDelete, setChatToDelete] = useState(null);
+
   /**
    * Opens custom context menu at right-click cursor position.
    * @param {React.MouseEvent} e
@@ -40,10 +44,18 @@ export const SidebarChatlist = ({
   };
 
   /**
-   * Triggers chat deletion API callback.
+   * Opens delete confirmation modal dialog when user selects delete from context menu.
    * @param {Object} chat
    */
-  const handleDelete = async (chat) => {
+  const handleDelete = (chat) => {
+    setChatToDelete(chat);
+  };
+
+  /**
+   * Confirms and executes chat deletion API callback.
+   * @param {Object} chat
+   */
+  const handleConfirmDelete = async (chat) => {
     try {
       if (removeChat) {
         const result = await removeChat(chat.id);
@@ -147,6 +159,15 @@ export const SidebarChatlist = ({
           onDelete={handleDelete}
           onEditName={handleEditName}
           onMute={handleMute}
+        />
+      )}
+
+      {/* Delete Chat confirmation dialog modal */}
+      {chatToDelete && (
+        <DeleteChatDialog
+          chat={chatToDelete}
+          onConfirm={handleConfirmDelete}
+          onClose={() => setChatToDelete(null)}
         />
       )}
     </div>

@@ -55,6 +55,7 @@ export const ChatView = ({
       setIsLoadingMore(false);
       scrollDivContainer.current.scrollTop = heightDifference;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
   /**
