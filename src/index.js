@@ -17,16 +17,8 @@ export async function main(fileName, db, customName) {
 
     // 2. Resolve Export File Location (ZIP or TXT)
     const { filePath, importDir, isZip } = await grabFileLocation(fileName);
-    let chatFilePath = filePath;
 
-    if (isZip) {
-        progressReporter.updateZip(0, 1);
-        await extractZip(filePath, importDir, (current, total) => {
-            progressReporter.updateZip(current, total);
-        });
-        progressReporter.completeZip();
-        chatFilePath = await findChatFile(importDir);
-    }
+    let chatFilePath = filePath;
 
     // // 4. Initialize Data Repository
     const repository = new ChatRepository(db);
@@ -39,8 +31,19 @@ export async function main(fileName, db, customName) {
 
     const exist = dbOperationRespository.checkChatExist(chatMetadata.name)
 
+
     if (customName) {
         chatMetadata.name = customName
+
+        if (isZip) {
+            progressReporter.updateZip(0, 1);
+            await extractZip(filePath, importDir, (current, total) => {
+                progressReporter.updateZip(current, total);
+            });
+            progressReporter.completeZip();
+            chatFilePath = await findChatFile(importDir);
+        }
+
         const chatRecord = repository.createChat(chatMetadata);
         const chatId = chatRecord.id;
 
@@ -75,9 +78,20 @@ export async function main(fileName, db, customName) {
     }
 
 
+
     if (exist) {
         return exist
     } else {
+
+        if (isZip) {
+            progressReporter.updateZip(0, 1);
+            await extractZip(filePath, importDir, (current, total) => {
+                progressReporter.updateZip(current, total);
+            });
+            progressReporter.completeZip();
+            chatFilePath = await findChatFile(importDir);
+        }
+
         const chatRecord = repository.createChat(chatMetadata);
         const chatId = chatRecord.id;
 
@@ -109,6 +123,9 @@ export async function main(fileName, db, customName) {
 
         progressReporter.complete();
     }
+
+
+
 
 
 
