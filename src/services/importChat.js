@@ -16,7 +16,7 @@ import { extractChatFileInfo } from "../parser/importer.js";
  *
  * @returns {Promise<{ filePath: string, importDir: string, isZip: boolean }>} File location descriptor object.
  */
-export async function grabFileLocation(filePath) {
+export async function grabFileLocation(filePath,customName) {
     
     const targetPath = filePath.trim().replace(/^['"]|['"]$/g, ""); // strip accidental quotes
 
@@ -29,7 +29,16 @@ export async function grabFileLocation(filePath) {
     }
 
     const [_, contact] = extractChatFileInfo(targetPath);
-    const importDir = path.join("./src/data/imports", contact);
+
+    let importDir; 
+    
+    if(customName){
+        importDir = path.join("./src/data/imports", customName);
+    }else{
+        importDir = path.join("./src/data/imports", contact);
+    }
+
+
     const isZip = targetPath.toLowerCase().endsWith(".zip");
 
     return { filePath: targetPath, importDir, isZip };
