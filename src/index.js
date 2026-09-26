@@ -26,7 +26,7 @@ export async function main(fileName, db, customName) {
     const progressReporter = new ConsoleProgressReporter();
 
     // 2. Resolve file path, target import directory, and format type (.zip vs .txt)
-    const { filePath, importDir, isZip } = await grabFileLocation(fileName);
+    const { filePath, importDir, isZip } = await grabFileLocation(fileName,customName);
 
     // 3. Initialize repository instances for database writes and existence queries
     const repository = new ChatRepository(db);
