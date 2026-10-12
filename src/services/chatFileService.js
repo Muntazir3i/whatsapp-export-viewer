@@ -1,8 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 export async function deleteChatFiles(chatName) { 
-    const folderPath = path.join("./src/data/imports", chatName);   
+    const dataUrl = new URL('../data/imports', import.meta.url)
+    const urlToPath = fileURLToPath(dataUrl)
+    const folderPath = path.join(urlToPath, chatName);       
     
     try {
         await fs.rm(folderPath, {
@@ -17,6 +20,10 @@ export async function deleteChatFiles(chatName) {
         });
     }
 }
+
+await deleteChatFiles("Aatif")
+
+
 
 
 
