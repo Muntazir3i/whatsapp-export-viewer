@@ -60,12 +60,12 @@ export function getMessages(chatId) {
  * @param {string|number} chatId - The ID of the chat to delete.
  * @returns {Promise<boolean>}
  */
-export function deleteChat(chatId) {
+export function deleteChat(chatId,chatName) {
   if (!window.api?.deleteChat) {
     console.warn('[electronApi] window.api.deleteChat is unavailable.');
     return Promise.resolve(false);
   }
-  return window.api.deleteChat(chatId);
+  return window.api.deleteChat(chatId,chatName);
 }
 
 /**

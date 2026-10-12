@@ -1,9 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-export async function deleteChatFiles(chatName) {
-    const folderPath = path.join("../data/imports", chatName);
-
+export async function deleteChatFiles(chatName) { 
+    const folderPath = path.join("./src/data/imports", chatName);   
+    
     try {
         await fs.rm(folderPath, {
             recursive: true,
@@ -17,5 +17,6 @@ export async function deleteChatFiles(chatName) {
         });
     }
 }
+
 
 

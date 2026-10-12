@@ -58,7 +58,7 @@ export const SidebarChatlist = ({
   const handleConfirmDelete = async (chat) => {
     try {
       if (removeChat) {
-        const result = await removeChat(chat.id);
+        const result = await removeChat(chat.id, chat.name);
         console.log(chat);
         console.log('[SidebarChatlist] Chat deleted:', result);
       }

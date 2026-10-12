@@ -40,9 +40,9 @@ export const Sidebar = ({ setSelectedChat }) => {
    * Deletes a chat by ID via IPC and triggers automatic chat list refetch.
    * @param {number|string} chatId
    */
-  async function removeChat(chatId) {
+  async function removeChat(chatId,chatName) {
     if (!chatId) return;
-    const result = await deleteChat(chatId);
+    const result = await deleteChat(chatId,chatName);
     if (result) {
       refetch();
       setSelectedChat(null)

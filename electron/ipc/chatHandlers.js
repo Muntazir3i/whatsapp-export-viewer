@@ -1,4 +1,5 @@
 import { ipcMain } from "electron";
+import { deleteChatFiles } from "../../src/services/chatFileService.js";
 
 /**
  * Registers all chat-related IPC event handlers for main process communication.
@@ -30,7 +31,8 @@ export function registerChatHandlers(chatService) {
      * @param {Object} event - IPC event.
      * @param {number|string} chat_id - Target chat ID.
      */
-    ipcMain.handle("delete-chat", (_, chat_id,chatName) => {
+    ipcMain.handle("delete-chat", async (_, chat_id,chatName) => {
+        await deleteChatFiles(chatName);
         return chatService.deleteChat(chat_id);
     });
 
