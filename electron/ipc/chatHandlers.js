@@ -30,7 +30,7 @@ export function registerChatHandlers(chatService) {
      * @param {Object} event - IPC event.
      * @param {number|string} chat_id - Target chat ID.
      */
-    ipcMain.handle("delete-chat", (_, chat_id) => {
+    ipcMain.handle("delete-chat", (_, chat_id,chatName) => {
         return chatService.deleteChat(chat_id);
     });
 

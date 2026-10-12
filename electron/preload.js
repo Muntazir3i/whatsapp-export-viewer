@@ -38,7 +38,7 @@ contextBridge.exposeInMainWorld("api", {
      * @param {number|string} chatId - Target chat unique identifier.
      * @returns {Promise<{ chat: number }>} Count of affected records.
      */
-    deleteChat: (chatId) => ipcRenderer.invoke("delete-chat", chatId),
+    deleteChat: (chatId,chatName) => ipcRenderer.invoke("delete-chat", chatId,chatName),
 
     /**
      * Loads older messages prior to `cursorId` for cursor-based message pagination.
