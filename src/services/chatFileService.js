@@ -21,9 +21,3 @@ export async function deleteChatFiles(chatName) {
     }
 }
 
-await deleteChatFiles("Aatif")
-
-
-
-
-
