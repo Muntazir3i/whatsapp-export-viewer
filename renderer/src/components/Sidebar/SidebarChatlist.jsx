@@ -59,6 +59,7 @@ export const SidebarChatlist = ({
     try {
       if (removeChat) {
         const result = await removeChat(chat.id);
+        console.log(chat);
         console.log('[SidebarChatlist] Chat deleted:', result);
       }
     } catch (err) {
