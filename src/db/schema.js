@@ -17,6 +17,7 @@ export function createSchema(db) {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             file_name TEXT,
+            participants TEXT NOT NULL DEFAULT '[]',
             imported_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -58,6 +59,14 @@ export class ChatRepository {
         this.insertMessageStmt = this.db.prepare(`
             INSERT INTO messages (chat_id, sender, message, timestamp, type)
             VALUES (@chat_id, @sender, @message, @timestamp, @type)
+        `);
+
+        // Pre-compile statement for updating participants and returning the row
+        this.updateParticipantsStmt = this.db.prepare(`
+            UPDATE chats 
+            SET participants = @participants 
+            WHERE id = @id
+            RETURNING *
         `);
 
         // Pre-compile bulk batch insert transaction wrapper
@@ -110,5 +119,17 @@ export class ChatRepository {
      */
     insertBatch(messages) {
         this.batchTransaction(messages);
+    }
+
+    // Method to save participants and return the updated chat record
+    updateParticipants(chatId, participantsSet) {
+        participantsSet.delete(null)
+        const participantsArray = [...participantsSet];
+        const participantsJson = JSON.stringify(participantsArray);
+
+        return this.updateParticipantsStmt.get({
+            id: chatId,
+            participants: participantsJson
+        });
     }
 }

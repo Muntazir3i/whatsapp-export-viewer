@@ -113,11 +113,12 @@ async function runImportPipeline({
                 ...parsedMessage
             });
 
-            // Flush buffer when batch limit is reached
-            if (messageBuffer.length >= BATCH_SIZE) {
-                for(const msg of messageBuffer){
+            for(const msg of messageBuffer){
                     participants.add(msg.sender)
                 }
+
+            // Flush buffer when batch limit is reached
+            if (messageBuffer.length >= BATCH_SIZE) {
                 repository.insertBatch(messageBuffer);
                 messageBuffer = [];
             }
@@ -134,7 +135,7 @@ async function runImportPipeline({
 
     progressReporter.complete();
 
-    participants.delete(null)
-    console.log("Chat Record Created:", chatRecord);
-    console.log(participants);
+    let updatedChatRecord = repository.updateParticipants(chatId,participants)
+
+    console.log("Chat Record Created:", updatedChatRecord);
 }
