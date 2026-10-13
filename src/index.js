@@ -102,6 +102,7 @@ async function runImportPipeline({
 
     // Buffer for accumulative batch insertions
     let messageBuffer = [];
+    let participants = new Set([]);
 
     // Stream and parse messages line-by-line to minimize memory footprint
     await streamChatMessages(
@@ -114,6 +115,9 @@ async function runImportPipeline({
 
             // Flush buffer when batch limit is reached
             if (messageBuffer.length >= BATCH_SIZE) {
+                for(const msg of messageBuffer){
+                    participants.add(msg.sender)
+                }
                 repository.insertBatch(messageBuffer);
                 messageBuffer = [];
             }
@@ -129,4 +133,8 @@ async function runImportPipeline({
     }
 
     progressReporter.complete();
+
+    participants.delete(null)
+    console.log("Chat Record Created:", chatRecord);
+    console.log(participants);
 }

@@ -85,7 +85,7 @@ export class ChatRepository {
             name: chatData.name,
             file_name: chatData.file_name
         });
-        console.log("Chat Record Created:", insertedRow);
+        // console.log("Chat Record Created:", insertedRow);
         return insertedRow;
     }
 
