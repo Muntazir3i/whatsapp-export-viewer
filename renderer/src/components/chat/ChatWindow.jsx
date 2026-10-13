@@ -36,18 +36,21 @@ export const ChatWindow = ({ selectedChat }) => {
   // Ref for auto-scrolling to the latest message
   const messagesEndRef = useRef(null);
 
+  
+
   /**
    * Derive unique list of participants from message senders.
    */
+  
   const participants = useMemo(() => {
-    const uniqueSenders = new Set();
-    messages.forEach((msg) => {
-      if (msg.sender) {
-        uniqueSenders.add(msg.sender);
-      }
-    });
-    return Array.from(uniqueSenders);
-  }, [messages]);
+    if (!selectedChat?.participants) return [];
+    try {
+      return JSON.parse(selectedChat.participants);
+    } catch (e) {
+      console.error("Failed to parse participants JSON:", e);
+      return [];
+    }
+  }, [selectedChat?.participants]);
 
   /**
    * Determines if a message is sent by the currently selected user profile.

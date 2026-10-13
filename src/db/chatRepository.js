@@ -25,6 +25,7 @@ export class chatRepository {
             SELECT 
                 c.id, 
                 c.name, 
+                c.participants,
                 m.message AS lastMessage, 
                 m.timestamp 
             FROM chats c
@@ -42,6 +43,7 @@ export class chatRepository {
             SELECT 
                 c.id, 
                 c.name, 
+                c.participants,
                 m.message AS lastMessage, 
                 m.timestamp 
             FROM chats c
