@@ -3,7 +3,7 @@
 /renderer/node_modules
 /jspm_packages
 /dist-electron
-/build
+
 
 # Production builds
 /dist
