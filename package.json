@@ -2,6 +2,7 @@
   "name": "whatsapp-export-viewer",
   "version": "1.0.0",
   "description": "A cross-platform desktop application for importing, parsing, and viewing WhatsApp chat exports locally, built with Electron, React, Node.js, and SQLite.",
+  "desktopName": "whatsapp-export-viewer.desktop",
   "homepage": "https://github.com/Muntazir3i/whatsapp-export-viewer#readme",
   "bugs": {
     "url": "https://github.com/Muntazir3i/whatsapp-export-viewer/issues"
@@ -100,7 +101,7 @@
           ]
         }
       ],
-      "icon": "build/icons",
+      "icon": "build/icon.png",
       "category": "Utility"
     },
     "nsis": {
