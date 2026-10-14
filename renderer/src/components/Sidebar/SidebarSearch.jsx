@@ -30,7 +30,7 @@ export const SidebarSearch = ({ searchTerm, setSearchTerm }) => {
         {/* Input field */}
         <input
           type="text"
-          placeholder="Search or start new chat"
+          placeholder="Search Chat"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-transparent text-[#e9edef] placeholder-[#8696a0] text-sm focus:outline-none"
