@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import { chatRepository } from "../src/db/chatRepository.js";
@@ -11,35 +11,67 @@ import { registerImportHandlers } from "./ipc/importHandlers.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const db = createDatabaseConnection();
+/**
+ * Detect whether the app is running in development mode.
+ * In development, ELECTRON_DEV=true is set in the npm script.
+ * In packaged production builds, this env var is never set.
+ */
+const isDev = process.env.ELECTRON_DEV === "true";
 
-createSchema(db)
+// In production, store the DB in the OS user-data directory so it persists
+// across app updates and is never bundled inside the ASAR package.
+// In development, fall back to project root (userDataPath = null).
+const userDataPath = isDev ? null : app.getPath("userData");
 
-const cr = new chatRepository(db)
+// Initialize the SQLite database connection
+const db = createDatabaseConnection("chats.db", userDataPath);
 
-const cs = new chatServices(cr)
+// Create tables if they don't already exist
+createSchema(db);
 
+// Initialize repository and service layers
+const cr = new chatRepository(db);
+const cs = new chatServices(cr);
+
+/**
+ * Creates the main BrowserWindow and loads the UI.
+ * In development:  loads from the Vite dev server (hot reload).
+ * In production:   loads from the compiled renderer/dist build on disk.
+ */
 function createWindow() {
     const win = new BrowserWindow({
-        width: 800,
-        height: 600,
-
+        width: 1200,
+        height: 800,
+        minWidth: 600,
+        minHeight: 500,
         webPreferences: {
             preload: path.join(__dirname, "preload.js"),
             contextIsolation: true,
-            nodeIntegration: false
-        }
+            nodeIntegration: false,
+        },
+        // Hide the default menu bar for a cleaner app feel
+        autoHideMenuBar: true,
     });
-    
-    win.loadURL("http://localhost:5174/")
+
+    if (isDev) {
+        // Development: connect to Vite dev server for hot module replacement
+        win.loadURL("http://localhost:5174/");
+        // Open DevTools automatically during development
+        win.webContents.openDevTools();
+    } else {
+        // Production: load the compiled static build from renderer/dist
+        win.loadFile(path.join(__dirname, "../renderer/dist/index.html"));
+    }
 }
 
+// Register all IPC handlers before the window is created
 registerChatHandlers(cs);
 registerImportHandlers(db);
 
 app.whenReady().then(() => {
     createWindow();
 
+    // macOS: re-create window when dock icon is clicked and no windows are open
     app.on("activate", () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             createWindow();
@@ -47,6 +79,7 @@ app.whenReady().then(() => {
     });
 });
 
+// Quit the app when all windows are closed (except on macOS)
 app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
         app.quit();

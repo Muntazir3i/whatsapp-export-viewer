@@ -61,7 +61,7 @@ export const SidebarHeader = ({ onImportSuccess }) => {
         <div className="flex items-center justify-between w-full">
           {/* App Title */}
           <h1 className="text-[#e9edef] font-bold text-base tracking-wide truncate mr-2">
-            WhatsApp Viewer
+            WhatsApp Export Viewer
           </h1>
 
           {/* Import Button */}

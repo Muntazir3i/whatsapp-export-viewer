@@ -3,44 +3,49 @@
  * @description
  * Creates and manages the application's SQLite database connection.
  *
- * This module exposes a single factory function that returns a configured
- * `better-sqlite3` database instance. The database file is always resolved
- * relative to the project root, ensuring the same database is used regardless
- * of the current working directory or where the application is executed from.
+ * DATABASE PATH STRATEGY:
+ * - Development: stores `chats.db` in the project root (easy to inspect & debug).
+ * - Production (packaged Electron app): stores `chats.db` in the OS user-data
+ *   directory. The caller (electron/main.js) passes the userData path explicitly
+ *   so this module stays synchronous and compatible with better-sqlite3:
+ *
+ *     Windows: C:\Users\<user>\AppData\Roaming\whatsapp-export-viewer\
+ *     macOS:   ~/Library/Application Support/whatsapp-export-viewer/
+ *     Linux:   ~/.config/whatsapp-export-viewer/
+ *
+ * This ensures the database file:
+ *   1. Survives app updates (never bundled inside the ASAR package).
+ *   2. Is located in a user-writable directory on all platforms.
+ *   3. Is easy to find for backups or debugging.
  */
 
 import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
 
-/**
- * Resolve the absolute path of the current module.
- *
- * ES Modules do not provide `__filename` or `__dirname` like CommonJS,
- * so they are recreated using `import.meta.url`.
- */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
  * Creates and opens a SQLite database connection.
  *
- * The database path is resolved to the project root to avoid creating
- * duplicate database files when the application is executed from
- * different directories.
- *
  * @param {string} [dbName="chats.db"] - Name of the SQLite database file.
- * @returns {Database.Database} An active `better-sqlite3` database instance.
+ * @param {string|null} [userDataPath=null] - Optional explicit directory for the DB file.
+ *   Pass `app.getPath('userData')` from the Electron main process in production.
+ *   When null, the project root is used (development / plain Node.js).
+ * @returns {import("better-sqlite3").Database} An active `better-sqlite3` database instance.
  */
-export function createDatabaseConnection(dbName = "chats.db") {
-    console.log(`Opening database connection: ${dbName}...`);
+export function createDatabaseConnection(dbName = "chats.db", userDataPath = null) {
+    // If a userDataPath is provided (production), store DB there.
+    // Otherwise fall back to the project root (development).
+    const dbDir = userDataPath ?? path.join(__dirname, "../../");
+    const dbPath = path.join(dbDir, dbName);
 
-    // Absolute path to the database file in the project root.
-    const dbPath = path.join(__dirname, "../../", dbName);
+    console.log(`Opening database: ${dbPath}`);
 
     const db = new Database(dbPath);
-    
-    // Enable SQLite foreign key enforcement
+
+    // Enable SQLite foreign key constraint enforcement
     db.pragma("foreign_keys = ON");
 
     console.log("Database connected successfully.");
