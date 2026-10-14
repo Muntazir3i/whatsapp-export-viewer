@@ -7,7 +7,7 @@
 
 # Production builds
 /dist
-/build
+
 
 # Environment variables
 .env
