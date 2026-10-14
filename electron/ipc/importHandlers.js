@@ -24,8 +24,9 @@ async function showDialogue() {
  * Handles primary import triggers ("import-chat") and custom rename imports ("import-chat-with-name").
  *
  * @param {import('better-sqlite3').Database} db - Active SQLite database instance.
+ * @param {string|null} [userDataPath=null] - Optional OS userData directory in production.
  */
-export function registerImportHandlers(db) {
+export function registerImportHandlers(db, userDataPath = null) {
   /**
    * Channel: "import-chat"
    * Prompts file picker dialog and executes standard ETL pipeline or collision check.
@@ -43,7 +44,7 @@ export function registerImportHandlers(db) {
       const selectedFilePath = dialogResult.filePaths[0];
 
       // 3. Execute ETL parsing & database insertion pipeline
-      let result = await main(selectedFilePath, db);
+      let result = await main(selectedFilePath, db, null, userDataPath);
 
       // 4. Return success result object with existence status and file path
       return { exist: result, success: true, filePath: selectedFilePath };
@@ -64,7 +65,7 @@ export function registerImportHandlers(db) {
   ipcMain.handle("import-chat-with-name", async (_, filePath, customName) => {
     try {
       // Execute ETL pipeline overriding original metadata name with customName
-      let result = await main(filePath, db, customName);
+      let result = await main(filePath, db, customName, userDataPath);
 
       return { exist: result, success: true, filePath: filePath };
     } catch (err) {

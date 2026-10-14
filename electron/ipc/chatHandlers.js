@@ -5,8 +5,9 @@ import { deleteChatFiles } from "../../src/services/chatFileService.js";
  * Registers all chat-related IPC event handlers for main process communication.
  *
  * @param {import('../../src/services/chatService.js').chatServices} chatService - Instance of chatServices.
+ * @param {string|null} [userDataPath=null] - Optional OS userData directory in production.
  */
-export function registerChatHandlers(chatService) {
+export function registerChatHandlers(chatService, userDataPath = null) {
     /**
      * Handler for fetching all available chats.
      * IPC Channel: "get-chats"
@@ -30,9 +31,10 @@ export function registerChatHandlers(chatService) {
      * IPC Channel: "delete-chat"
      * @param {Object} event - IPC event.
      * @param {number|string} chat_id - Target chat ID.
+     * @param {string} chatName - Target chat name for folder deletion.
      */
-    ipcMain.handle("delete-chat", async (_, chat_id,chatName) => {
-        await deleteChatFiles(chatName);
+    ipcMain.handle("delete-chat", async (_, chat_id, chatName) => {
+        await deleteChatFiles(chatName, userDataPath);
         return chatService.deleteChat(chat_id);
     });
 
