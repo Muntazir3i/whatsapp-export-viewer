@@ -1,6 +1,7 @@
-export const ChatMessage = ({msg, isOutgoing, showDateDivider, currentDate}) => {
+export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) => {
   return (
     <>
+
       {/* Sticky date section header */}
       {showDateDivider && (
         <div className="flex justify-center my-3">
@@ -10,14 +11,18 @@ export const ChatMessage = ({msg, isOutgoing, showDateDivider, currentDate}) => 
         </div>
       )}
 
-      {/* Message Bubble Row Container */}
-      <div className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'} w-full`}>
+      {/* System Messages & Message Bubble Row Container */}
+
+      {msg.type === "system" ? <div className="flex justify-center my-3">
+        <span className="bg-[#182229] text-[#8696a0] text-xs px-3 py-1 rounded-md font-medium shadow-sm">
+          {msg.message}
+        </span>
+      </div> : <div className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'} w-full`}>
         <div
-          className={`relative max-w-[85%] sm:max-w-[70%] min-w-0 rounded-lg px-3 py-1.5 text-sm shadow ${
-            isOutgoing
-              ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none'
-              : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'
-          }`}
+          className={`relative max-w-[85%] sm:max-w-[70%] min-w-0 rounded-lg px-3 py-1.5 text-sm shadow ${isOutgoing
+            ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none'
+            : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'
+            }`}
         >
           {/* Sender label for incoming group messages */}
           {!isOutgoing && msg.sender && (
@@ -37,7 +42,9 @@ export const ChatMessage = ({msg, isOutgoing, showDateDivider, currentDate}) => 
             </span>
           </div>
         </div>
-      </div>
+      </div>}
+
+
     </>
   )
 }
