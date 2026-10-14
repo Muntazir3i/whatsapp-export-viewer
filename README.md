@@ -375,7 +375,11 @@ This recompiles native Node modules specifically against your installed Electron
 WhatsApp exports contain messages from multiple senders without explicitly specifying which participant owned the device where the export was performed. Selecting your name tells the application which messages to render on the right as outgoing versus the left as incoming.
 
 #### Where are extracted `.zip` files stored?
-When importing `.zip` archives, contents are unzipped into `./src/data/imports/<ChatName>` during development. When a chat is deleted via the context menu, this folder and all associated records are permanently erased.
+When importing `.zip` archives, contents are unzipped into:
+- **In Development**: `./src/data/imports/<ChatName>` inside the project repository.
+- **In Production**: `<userData>/imports/<ChatName>` inside the user's OS application data directory (`~/Library/Application Support/` on macOS, `%APPDATA%` on Windows, `~/.config/` on Linux).
+
+When a chat is deleted via the context menu, this folder and all associated records are permanently erased.
 
 ---
 

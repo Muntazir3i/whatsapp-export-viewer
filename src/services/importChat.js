@@ -1,23 +1,42 @@
 /**
  * @file importChat.js
- * @description Service for resolving WhatsApp export file locations, handling ZIP extraction, and locating target text files.
+ * @description Service for resolving WhatsApp export file locations, handling ZIP extraction,
+ * and locating target text files across both development and production environments.
  */
 
 import extract from "extract-zip";
 import path from "path";
-import readline from "readline/promises";
-import { stdin as input, stdout as output } from "process";
 import { existsSync, mkdirSync } from "fs";
 import { readdir } from "fs/promises";
+import { fileURLToPath } from "url";
 import { extractChatFileInfo } from "../parser/importer.js";
 
 /**
- * Prompts the user for a WhatsApp export file path (.zip or .txt) via CLI input and validates it.
+ * Resolves the base directory where extracted export archives are stored.
+ * - In development (userDataPath is null): defaults to `src/data/imports` inside the project root.
+ * - In production (userDataPath provided): stores in `<userDataPath>/imports` (e.g. AppData on Windows,
+ *   Application Support on macOS) ensuring write permissions and survival across app updates.
  *
+ * @param {string|null} [userDataPath=null] - Optional OS user-data directory from Electron main process.
+ * @returns {string} Absolute path to the base imports folder.
+ */
+export function getImportsBaseDir(userDataPath = null) {
+    if (userDataPath) {
+        return path.join(userDataPath, "imports");
+    }
+    // Fallback for development / CLI runs
+    return fileURLToPath(new URL("../data/imports", import.meta.url));
+}
+
+/**
+ * Prompts the user for a WhatsApp export file path (.zip or .txt) and resolves output extraction directory.
+ *
+ * @param {string} filePath - Path to target export file.
+ * @param {string} [customName] - Optional custom name override provided by user.
+ * @param {string|null} [userDataPath=null] - Optional OS userData directory in production.
  * @returns {Promise<{ filePath: string, importDir: string, isZip: boolean }>} File location descriptor object.
  */
-export async function grabFileLocation(filePath,customName) {
-    
+export async function grabFileLocation(filePath, customName, userDataPath = null) {
     const targetPath = filePath.trim().replace(/^['"]|['"]$/g, ""); // strip accidental quotes
 
     if (!targetPath) {
@@ -29,15 +48,9 @@ export async function grabFileLocation(filePath,customName) {
     }
 
     const [_, contact] = extractChatFileInfo(targetPath);
-
-    let importDir; 
-    
-    if(customName){
-        importDir = path.join("./src/data/imports", customName);
-    }else{
-        importDir = path.join("./src/data/imports", contact);
-    }
-
+    const folderName = customName ? customName.trim() : contact;
+    const baseImportsDir = getImportsBaseDir(userDataPath);
+    const importDir = path.join(baseImportsDir, folderName);
 
     const isZip = targetPath.toLowerCase().endsWith(".zip");
 
@@ -76,17 +89,46 @@ export async function extractZip(zipFilePath, outputDir, onProgress) {
 
 /**
  * Finds the exported WhatsApp chat text file inside an extracted directory.
+ * Filters out hidden files, macOS metadata directories (__MACOSX), and AppleDouble files (._*).
  *
  * @param {string} importDir - Directory containing extracted ZIP contents.
  * @returns {Promise<string>} Path to the located chat text file.
  */
 export async function findChatFile(importDir) {
-    const items = await readdir(importDir);
-    const textFile = items.find(item => item.endsWith(".txt"));
+    const items = await readdir(importDir, { withFileTypes: true });
 
-    if (!textFile) {
-        throw new Error(`No WhatsApp chat text (.txt) file found in "${importDir}".`);
+    // Collect valid .txt files in the root of the extracted directory
+    const validTxtFiles = [];
+
+    for (const item of items) {
+        if (item.name.startsWith(".") || item.name.startsWith("._") || item.name === "__MACOSX") {
+            continue;
+        }
+        if (item.isFile() && item.name.toLowerCase().endsWith(".txt")) {
+            validTxtFiles.push(path.join(importDir, item.name));
+        }
     }
 
-    return path.join(importDir, textFile);
+    if (validTxtFiles.length > 0) {
+        // Prioritize standard names like _chat.txt or names starting with WhatsApp Chat
+        const preferred = validTxtFiles.find(f => {
+            const base = path.basename(f).toLowerCase();
+            return base === "_chat.txt" || base.startsWith("whatsapp chat") || base.includes("chat");
+        });
+        return preferred || validTxtFiles[0];
+    }
+
+    // Inspect one level of subdirectories if files were unpacked into an inner folder
+    for (const item of items) {
+        if (item.isDirectory() && !item.name.startsWith(".") && item.name !== "__MACOSX") {
+            const subDir = path.join(importDir, item.name);
+            const subItems = await readdir(subDir);
+            const subTxt = subItems.find(f => !f.startsWith(".") && !f.startsWith("._") && f.toLowerCase().endsWith(".txt"));
+            if (subTxt) {
+                return path.join(subDir, subTxt);
+            }
+        }
+    }
+
+    throw new Error(`No WhatsApp chat text (.txt) file found in "${importDir}".`);
 }

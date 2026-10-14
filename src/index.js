@@ -19,14 +19,15 @@ const BATCH_SIZE = 1000;
  * @param {string} fileName - Absolute or relative path to the target .zip or .txt export file.
  * @param {import("better-sqlite3").Database} db - Active SQLite database instance.
  * @param {string} [customName] - Optional custom name override provided by the user.
+ * @param {string|null} [userDataPath=null] - Optional OS userData directory in production.
  * @returns {Promise<boolean>} Resolves to `true` if a chat with the same name already exists (collision detected), or `false` on successful import.
  */
-export async function main(fileName, db, customName) {
+export async function main(fileName, db, customName, userDataPath = null) {
     // 1. Initialize progress reporter for console updates
     const progressReporter = new ConsoleProgressReporter();
 
     // 2. Resolve file path, target import directory, and format type (.zip vs .txt)
-    const { filePath, importDir, isZip } = await grabFileLocation(fileName,customName);
+    const { filePath, importDir, isZip } = await grabFileLocation(fileName, customName, userDataPath);
 
     // 3. Initialize repository instances for database writes and existence queries
     const repository = new ChatRepository(db);

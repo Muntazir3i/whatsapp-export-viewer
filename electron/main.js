@@ -65,8 +65,10 @@ function createWindow() {
 }
 
 // Register all IPC handlers before the window is created
-registerChatHandlers(cs);
-registerImportHandlers(db);
+// userDataPath ensures that both database and extracted files use OS user data in production,
+// and local project directories during development.
+registerChatHandlers(cs, userDataPath);
+registerImportHandlers(db, userDataPath);
 
 app.whenReady().then(() => {
     createWindow();
