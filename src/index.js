@@ -19,10 +19,10 @@ const BATCH_SIZE = 1000;
  * @param {string} fileName - Absolute or relative path to the target .zip or .txt export file.
  * @param {import("better-sqlite3").Database} db - Active SQLite database instance.
  * @param {string} [customName] - Optional custom name override provided by the user.
- * @param {string|null} [userDataPath=null] - Optional OS userData directory in production.
+ * @param {string} userDataPath - OS userData directory supplied by the Electron main process.
  * @returns {Promise<boolean>} Resolves to `true` if a chat with the same name already exists (collision detected), or `false` on successful import.
  */
-export async function main(fileName, db, customName, userDataPath = null) {
+export async function main(fileName, db, customName, userDataPath) {
     // 1. Initialize progress reporter for console updates
     const progressReporter = new ConsoleProgressReporter();
 

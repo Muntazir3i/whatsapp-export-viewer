@@ -18,10 +18,11 @@ const __dirname = path.dirname(__filename);
  */
 const isDev = process.env.ELECTRON_DEV === "true";
 
-// In production, store the DB in the OS user-data directory so it persists
-// across app updates and is never bundled inside the ASAR package.
-// In development, fall back to project root (userDataPath = null).
-const userDataPath = isDev ? null : app.getPath("userData");
+// Store all runtime data (database + extracted exports) in the OS user-data
+// directory in BOTH development and production. This keeps the source tree clean,
+// guarantees imported chat content is never bundled into packaged builds, and
+// provides a single platform-correct, user-writable location.
+const userDataPath = app.getPath("userData");
 
 // Initialize the SQLite database connection
 const db = createDatabaseConnection("chats.db", userDataPath);
@@ -65,8 +66,7 @@ function createWindow() {
 }
 
 // Register all IPC handlers before the window is created
-// userDataPath ensures that both database and extracted files use OS user data in production,
-// and local project directories during development.
+// userDataPath is the single data home for both the database and extracted files.
 registerChatHandlers(cs, userDataPath);
 registerImportHandlers(db, userDataPath);
 

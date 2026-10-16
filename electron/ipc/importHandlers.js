@@ -24,9 +24,9 @@ async function showDialogue() {
  * Handles primary import triggers ("import-chat") and custom rename imports ("import-chat-with-name").
  *
  * @param {import('better-sqlite3').Database} db - Active SQLite database instance.
- * @param {string|null} [userDataPath=null] - Optional OS userData directory in production.
+ * @param {string} userDataPath - OS userData directory supplied by the Electron main process.
  */
-export function registerImportHandlers(db, userDataPath = null) {
+export function registerImportHandlers(db, userDataPath) {
   /**
    * Channel: "import-chat"
    * Prompts file picker dialog and executes standard ETL pipeline or collision check.

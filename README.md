@@ -120,7 +120,7 @@ The project is structured according to Electron's security best practices, stric
 +-------------------------------------------------------------------+
 ```
 
-1. **Main Process (`electron/main.js`)**: Manages the application lifecycle, initializes the SQLite database (in `app.getPath("userData")` for production or project root during development), and registers IPC handlers.
+1. **Main Process (`electron/main.js`)**: Manages the application lifecycle, initializes the SQLite database (in `app.getPath("userData")` for both development and production), and registers IPC handlers.
 2. **Preload Script (`electron/preload.js`)**: Securely exposes safe, typed wrapper methods on `window.api` with `contextIsolation: true` and `nodeIntegration: false`.
 3. **ETL Pipeline (`src/`)**: Decoupled Node.js modules responsible for extracting zip archives, streaming file contents, identifying message start boundaries, and persisting data.
 4. **Renderer Process (`renderer/`)**: A Single Page Application constructed with React 19 and Tailwind CSS v4, compiled using Vite.
@@ -294,10 +294,9 @@ Packaged installers and standalone application binaries will be output to the `d
 
 ## Database Schema & Persistence
 
-The application initializes a SQLite database (`chats.db`). 
+The application initializes a SQLite database (`chats.db`).
 
-- **In Development**: The database file resides at the root of the project repository (`./chats.db`).
-- **In Packaged Production**: The database is stored inside the operating system user data directory (`app.getPath("userData")`) to guarantee persistence across updates and avoid bundling issues within the ASAR archive:
+- The database file always resides inside the operating system user data directory (`app.getPath("userData")`), in **both development and production**. Keeping data out of the project tree guarantees imported chat content is never bundled into packaged builds or committed to git:
   - **macOS**: `~/Library/Application Support/WhatsApp Export Viewer/chats.db`
   - **Windows**: `%APPDATA%\WhatsApp Export Viewer\chats.db`
   - **Linux**: `~/.config/WhatsApp Export Viewer/chats.db`
@@ -375,9 +374,7 @@ This recompiles native Node modules specifically against your installed Electron
 WhatsApp exports contain messages from multiple senders without explicitly specifying which participant owned the device where the export was performed. Selecting your name tells the application which messages to render on the right as outgoing versus the left as incoming.
 
 #### Where are extracted `.zip` files stored?
-When importing `.zip` archives, contents are unzipped into:
-- **In Development**: `./src/data/imports/<ChatName>` inside the project repository.
-- **In Production**: `<userData>/imports/<ChatName>` inside the user's OS application data directory (`~/Library/Application Support/` on macOS, `%APPDATA%` on Windows, `~/.config/` on Linux).
+When importing `.zip` archives, contents are unzipped into `<userData>/imports/<ChatName>` — the user's OS application data directory (`~/Library/Application Support/` on macOS, `%APPDATA%` on Windows, `~/.config/` on Linux) — in **both development and production**. This keeps extracted media out of the project tree and out of packaged builds.
 
 When a chat is deleted via the context menu, this folder and all associated records are permanently erased.
 

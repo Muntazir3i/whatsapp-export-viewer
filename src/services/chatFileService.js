@@ -1,22 +1,18 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { getImportsBaseDir } from "./appPaths.js";
 
 /**
  * Deletes the extracted files folder for a specific chat.
- * Works seamlessly in development (`src/data/imports`) and production (`<userData>/imports`).
+ * Stored under `<userData>/imports` in both development and production.
  *
  * @param {string} chatName - Contact or custom chat name representing the folder.
- * @param {string|null} [userDataPath=null] - Optional OS userData directory in production.
+ * @param {string} userDataPath - OS userData directory supplied by the Electron main process.
  */
-export async function deleteChatFiles(chatName, userDataPath = null) { 
+export async function deleteChatFiles(chatName, userDataPath) { 
     if (!chatName) return;
 
-    const baseDir = userDataPath 
-        ? path.join(userDataPath, "imports")
-        : fileURLToPath(new URL("../data/imports", import.meta.url));
-
-    const folderPath = path.join(baseDir, chatName);       
+    const folderPath = path.join(getImportsBaseDir(userDataPath), chatName);       
     
     try {
         await fs.rm(folderPath, {

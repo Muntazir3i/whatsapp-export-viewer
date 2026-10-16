@@ -5,9 +5,9 @@ import { deleteChatFiles } from "../../src/services/chatFileService.js";
  * Registers all chat-related IPC event handlers for main process communication.
  *
  * @param {import('../../src/services/chatService.js').chatServices} chatService - Instance of chatServices.
- * @param {string|null} [userDataPath=null] - Optional OS userData directory in production.
+ * @param {string} userDataPath - OS userData directory supplied by the Electron main process.
  */
-export function registerChatHandlers(chatService, userDataPath = null) {
+export function registerChatHandlers(chatService, userDataPath) {
     /**
      * Handler for fetching all available chats.
      * IPC Channel: "get-chats"

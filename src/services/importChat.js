@@ -8,35 +8,18 @@ import extract from "extract-zip";
 import path from "path";
 import { existsSync, mkdirSync } from "fs";
 import { readdir } from "fs/promises";
-import { fileURLToPath } from "url";
+import { getImportsBaseDir } from "./appPaths.js";
 import { extractChatFileInfo } from "../parser/importer.js";
-
-/**
- * Resolves the base directory where extracted export archives are stored.
- * - In development (userDataPath is null): defaults to `src/data/imports` inside the project root.
- * - In production (userDataPath provided): stores in `<userDataPath>/imports` (e.g. AppData on Windows,
- *   Application Support on macOS) ensuring write permissions and survival across app updates.
- *
- * @param {string|null} [userDataPath=null] - Optional OS user-data directory from Electron main process.
- * @returns {string} Absolute path to the base imports folder.
- */
-export function getImportsBaseDir(userDataPath = null) {
-    if (userDataPath) {
-        return path.join(userDataPath, "imports");
-    }
-    // Fallback for development / CLI runs
-    return fileURLToPath(new URL("../data/imports", import.meta.url));
-}
 
 /**
  * Prompts the user for a WhatsApp export file path (.zip or .txt) and resolves output extraction directory.
  *
  * @param {string} filePath - Path to target export file.
  * @param {string} [customName] - Optional custom name override provided by user.
- * @param {string|null} [userDataPath=null] - Optional OS userData directory in production.
+ * @param {string} userDataPath - OS userData directory supplied by the Electron main process.
  * @returns {Promise<{ filePath: string, importDir: string, isZip: boolean }>} File location descriptor object.
  */
-export async function grabFileLocation(filePath, customName, userDataPath = null) {
+export async function grabFileLocation(filePath, customName, userDataPath) {
     const targetPath = filePath.trim().replace(/^['"]|['"]$/g, ""); // strip accidental quotes
 
     if (!targetPath) {
