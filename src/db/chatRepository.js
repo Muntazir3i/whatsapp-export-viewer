@@ -1,26 +1,17 @@
 /**
  * @file chatRepository.js
- * @description
- * Encapsulates all database operations related to chats and messages.
- *
- * This repository is responsible for interacting with the SQLite database
- * using pre-compiled prepared statements and transactions. It provides methods
- * for retrieving chat and message data, paginating messages, and performing atomic deletions.
+ * Database access for the `chats` and `messages` tables using prepared statements.
+ * Query and pagination semantics are defined here; upper layers are thin pass-throughs.
  */
 
-/**
- * Repository class for executing database queries on the `chats` and `messages` tables.
- */
 export class chatRepository {
     /**
-     * Creates an instance of chatRepository and pre-compiles SQL prepared statements.
-     * 
-     * @param {import('better-sqlite3').Database} db - An active better-sqlite3 database connection object.
+     * @param {import('better-sqlite3').Database} db
      */
     constructor(db) {
         this.db = db;
 
-        // Pre-compile statements once for optimal performance
+        // Every chat with its most recent message.
         this.findAllChatsStmt = this.db.prepare(`
             SELECT 
                 c.id, 
@@ -58,6 +49,7 @@ export class chatRepository {
             WHERE c.id = ?
         `);
 
+        // Newest 100 messages, re-sorted oldest-first for chronological display.
         this.findMessagesByChatIdStmt = this.db.prepare(`
             SELECT * FROM (
                 SELECT * FROM messages 
@@ -68,7 +60,7 @@ export class chatRepository {
             ORDER BY id ASC;
         `);
 
-        // Pre-compile statement for cursor-based message pagination (fetches up to 100 messages older than cursorId)
+        // Up to 100 messages older than the cursor, oldest-first.
         this.loadMoreMessagesStmt = this.db.prepare(`
             SELECT * FROM (
                 SELECT * FROM messages 
@@ -79,8 +71,6 @@ export class chatRepository {
             ORDER BY id ASC;
         `);
 
-        // Pre-compile statement to check if the chat exist for not
-
         this.checkChatExistStmt = this.db.prepare(`
             SELECT 1 
                 FROM chats 
@@ -88,73 +78,48 @@ export class chatRepository {
                 LIMIT 1;
         `)
 
-        // Pre-compile statement for deleting a chat (cascading deletes associated messages)
         this.deleteChatStmt = this.db.prepare('DELETE FROM chats WHERE id = ?');
     }
 
-    /**
-     * Retrieves all chats from the database along with their most recent message details.
-     *
-     * @returns {Array<Object>} An array of objects representing all chats (id, name, lastMessage, timestamp).
-     */
+    /** @returns {Array<Object>} All chats with their latest message. */
     findAllChats() {
         return this.findAllChatsStmt.all();
     }
 
-    /**
-     * Retrieves a single chat record by its unique ID along with its latest message.
-     *
-     * @param {number|string} id - The unique identifier of the chat to find.
-     * @returns {Object|undefined} The chat record matching the ID, or `undefined` if not found.
-     */
+    /** @param {number|string} id @returns {Object|undefined} */
     findChatById(id) {
         return this.findChatByIdStmt.get(id);
     }
 
-    /**
-     * Retrieves the latest 100 messages for a specified chat ID.
-     *
-     * @param {number|string} chat_id - The ID of the chat whose messages are being requested.
-     * @returns {Array<Object>} An array containing up to 100 of the most recent message records for the chat.
-     */
+    /** Latest 100 messages for a chat, oldest-first.
+     *  @param {number|string} chat_id */
     findMessagesByChatId(chat_id) {
         return this.findMessagesByChatIdStmt.all(chat_id);
     }
 
-    /**
-     * Retrieves up to 100 older messages for a specified chat ID before the given cursor ID.
-     *
-     * @param {number|string} chat_id - The ID of the chat whose messages are being requested.
-     * @param {number|string} cursorId - The message ID threshold (messages with id < cursorId will be fetched).
-     * @returns {Array<Object>} An array containing older message records for the chat ordered chronologically (id ASC).
-     */
+    /** Up to 100 messages older than `cursorId`, oldest-first.
+     *  @param {number|string} chat_id @param {number|string} cursorId */
     loadMoreMessages(chat_id, cursorId) {
         return this.loadMoreMessagesStmt.all(chat_id, cursorId);
     }
 
+    /** @param {string} chat_name @returns {boolean} */
+    checkChatExist(chat_name) {
+        return !!this.checkChatExistStmt.get(chat_name);
+    }
+
     /**
-     * Deletes a chat record from the database by ID.
-     * 
-     * Foreign key `ON DELETE CASCADE` automatically deletes all associated messages.
-     *
-     * @param {number|string} chat_id - The ID of the chat to delete.
-     * @returns {{ chat: number }} Object containing the count of affected deleted chat records.
+     * Deletes a chat. Associated messages are removed by the FK's
+     * `ON DELETE CASCADE`.
+     * @param {number|string} chat_id
+     * @returns {{ chat: number }} Number of chats deleted.
      */
     deleteChat(chat_id) {
         const result = this.deleteChatStmt.run(chat_id);
         return { chat: result.changes };
     }
 
-    checkChatExist(chat_name){
-        return !!this.checkChatExistStmt.get(chat_name);
-    }
-
-    /**
-     * Alias for `deleteChat` to maintain backward compatibility.
-     *
-     * @param {number|string} chat_id - The ID of the chat to delete.
-     * @returns {{ chat: number }} Object containing the count of affected deleted chat records.
-     */
+    /** @deprecated Use {@link deleteChat}. */
     deleteMessageById(chat_id) {
         return this.deleteChat(chat_id);
     }

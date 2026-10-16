@@ -99,16 +99,16 @@ export class ChatRepository {
     }
 
     /**
-     * Inserts a single message record.
-     * 
-     * @param {Object} messageData - Message data object.
+     * Inserts a single message row.
+     * @param {Object} messageData - Row with chat_id, sender, message, timestamp, type.
      */
     insertMessage(messageData) {
         this.insertMessageStmt.run({
             chat_id: messageData.chat_id,
             sender: messageData.sender,
             message: messageData.message,
-            timestamp: messageData.timestamp
+            timestamp: messageData.timestamp,
+            type: messageData.type
         });
     }
 
