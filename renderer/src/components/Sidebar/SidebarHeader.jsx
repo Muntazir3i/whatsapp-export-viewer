@@ -13,6 +13,7 @@ import { ChatExistDialog } from "./ChatExistDialog.jsx";
  */
 export const SidebarHeader = ({ onImportSuccess }) => {
   const [isImporting, setIsImporting] = useState(false);
+  const [showDialog, setShowDialog] = useState(false);
   const [exist, setExist] = useState(false);
   const [path, setPath] = useState("");
 
@@ -24,6 +25,8 @@ export const SidebarHeader = ({ onImportSuccess }) => {
 
     setExist(false);
     setIsImporting(true);
+    // Delay the modal slightly so quick imports don't flash a dialog.
+    const dialogTimer = setTimeout(() => setShowDialog(true), 400);
 
     try {
       const result = await importChat();
@@ -41,6 +44,8 @@ export const SidebarHeader = ({ onImportSuccess }) => {
     } catch (err) {
       console.error("[SidebarHeader] Unexpected import error:", err);
     } finally {
+      clearTimeout(dialogTimer);
+      setShowDialog(false);
       setIsImporting(false);
     }
   };
@@ -115,7 +120,7 @@ export const SidebarHeader = ({ onImportSuccess }) => {
       </header>
 
       {/* Importing Dialog */}
-      {isImporting && (<ImportingDialog />)}
+      {showDialog && (<ImportingDialog />)}
 
       {/* Chat Already Exists Dialog */}
       {exist && (<ChatExistDialog setExist={setExist} path={path} onImportSuccess={onImportSuccess} />)}

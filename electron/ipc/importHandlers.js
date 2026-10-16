@@ -31,7 +31,7 @@ export function registerImportHandlers(db, userDataPath) {
    * Channel: "import-chat"
    * Prompts file picker dialog and executes standard ETL pipeline or collision check.
    */
-  ipcMain.handle("import-chat", async () => {
+  ipcMain.handle("import-chat", async (event) => {
     try {
       // 1. Open native OS file picker
       const dialogResult = await showDialogue();
@@ -43,8 +43,13 @@ export function registerImportHandlers(db, userDataPath) {
 
       const selectedFilePath = dialogResult.filePaths[0];
 
-      // 3. Execute ETL parsing & database insertion pipeline
-      let result = await main(selectedFilePath, db, null, userDataPath);
+      // 3. Execute ETL parsing & database insertion pipeline, streaming progress to the renderer
+      const onProgress = (payload) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send("import-progress", payload);
+        }
+      };
+      let result = await main(selectedFilePath, db, null, userDataPath, onProgress);
 
       // 4. Return success result object with existence status and file path
       return { exist: result, success: true, filePath: selectedFilePath };
@@ -62,10 +67,15 @@ export function registerImportHandlers(db, userDataPath) {
    * @param {string} filePath - Path to target export file on disk.
    * @param {string} customName - User-provided custom chat name.
    */
-  ipcMain.handle("import-chat-with-name", async (_, filePath, customName) => {
+  ipcMain.handle("import-chat-with-name", async (event, filePath, customName) => {
     try {
       // Execute ETL pipeline overriding original metadata name with customName
-      let result = await main(filePath, db, customName, userDataPath);
+      const onProgress = (payload) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send("import-progress", payload);
+        }
+      };
+      let result = await main(filePath, db, customName, userDataPath, onProgress);
 
       return { exist: result, success: true, filePath: filePath };
     } catch (err) {

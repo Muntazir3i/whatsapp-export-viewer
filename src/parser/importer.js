@@ -3,7 +3,7 @@
  * @description High-level stream importer for reading WhatsApp export files and invoking callbacks for parsed messages.
  */
 
-import { createLineReader } from "./reader.js";
+import { createLineReader, getFileByteSize } from "./reader.js";
 import { MessageStreamBuffer } from "./messageParser.js";
 
 import path from "path";
@@ -41,12 +41,22 @@ export function extractChatMetadata(filePath) {
  *
  * @param {string} filePath - Path to the WhatsApp export `.txt` file.
  * @param {Function} onMessageParsed - Async callback `(messageObj) => Promise<void>` when a message is ready.
+ * @param {Function} [onProgress] - Optional callback `(bytesRead, totalBytes) => void`.
  */
-export async function streamChatMessages(filePath, onMessageParsed) {
+export async function streamChatMessages(filePath, onMessageParsed, onProgress) {
     const lineReader = createLineReader(filePath);
+    const totalBytes = getFileByteSize(filePath);
+    let bytesRead = 0;
+
     const messageBuffer = new MessageStreamBuffer();
 
     for await (const line of lineReader) {
+        // readline strips the newline, so +1 accounts for it in the byte total
+        bytesRead += Buffer.byteLength(line) + 1;
+        if (onProgress) {
+            onProgress(bytesRead, totalBytes);
+        }
+
         if (line.length === 0) continue;
 
         const parsedMessage = messageBuffer.processLine(line);

@@ -92,3 +92,16 @@ export function loadMessages(chatId, cursorId) {
 export function loadMoreMessages(chatId, cursorId) {
   return loadMessages(chatId, cursorId);
 }
+
+/**
+ * Subscribes to import progress events from the main process.
+ * @param {Function} callback - Receives `{ phase, percent, current, total }`.
+ * @returns {Function} Unsubscribe function (no-op when IPC is unavailable).
+ */
+export function onImportProgress(callback) {
+  if (!window.api?.onImportProgress) {
+    console.warn('[electronApi] window.api.onImportProgress is unavailable.');
+    return () => {};
+  }
+  return window.api.onImportProgress(callback);
+}

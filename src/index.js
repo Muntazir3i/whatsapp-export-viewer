@@ -20,9 +20,10 @@ const BATCH_SIZE = 1000;
  * @param {import("better-sqlite3").Database} db - Active SQLite database instance.
  * @param {string} [customName] - Optional custom name override provided by the user.
  * @param {string} userDataPath - OS userData directory supplied by the Electron main process.
+ * @param {Function} [onProgress] - Optional callback `(progress) => void` receiving `{ phase, percent, current, total }`.
  * @returns {Promise<boolean>} Resolves to `true` if a chat with the same name already exists (collision detected), or `false` on successful import.
  */
-export async function main(fileName, db, customName, userDataPath) {
+export async function main(fileName, db, customName, userDataPath, onProgress) {
     // 1. Resolve file path, target import directory, and format type (.zip vs .txt)
     const { filePath, importDir, isZip } = await grabFileLocation(fileName, customName, userDataPath);
 
@@ -46,16 +47,38 @@ export async function main(fileName, db, customName, userDataPath) {
     }
 
     // 5. Execute ETL Import Pipeline (ZIP extraction, parsing, and transactional batch loading)
+    const reportProgress = createProgressReporter(onProgress);
     await runImportPipeline({
         filePath,
         importDir,
         isZip,
         chatFilePath,
         chatMetadata,
-        repository
+        repository,
+        reportProgress
     });
 
     return false;
+}
+
+/**
+ * Wraps a raw progress callback so it only fires when the phase or the integer
+ * percentage changes, preventing IPC spam during large imports.
+ *
+ * @param {Function} [onProgress] - Raw progress consumer.
+ * @returns {Function} Throttled reporter accepting `{ phase, current, total }`.
+ */
+function createProgressReporter(onProgress) {
+    if (!onProgress) return () => {};
+
+    let lastKey = null;
+    return ({ phase, current = 0, total = 0 }) => {
+        const percent = total > 0 ? Math.floor((current / total) * 100) : -1;
+        const key = `${phase}:${percent}`;
+        if (key === lastKey) return;
+        lastKey = key;
+        onProgress({ phase, percent, current, total });
+    };
 }
 
 /**
@@ -69,6 +92,7 @@ export async function main(fileName, db, customName, userDataPath) {
  * @param {string} options.chatFilePath - Resolved path to the text chat file.
  * @param {Object} options.chatMetadata - Extracted chat metadata object.
  * @param {ChatRepository} options.repository - Database writing repository instance.
+ * @param {Function} options.reportProgress - Throttled progress reporter `({ phase, current, total }) => void`.
  * @returns {Promise<void>}
  */
 async function runImportPipeline({
@@ -77,11 +101,15 @@ async function runImportPipeline({
     isZip,
     chatFilePath,
     chatMetadata,
-    repository
+    repository,
+    reportProgress
 }) {
     // Extract ZIP archive if applicable
     if (isZip) {
-        await extractZip(filePath, importDir);
+        reportProgress({ phase: "extracting", current: 0, total: 1 });
+        await extractZip(filePath, importDir, (current, total) => {
+            reportProgress({ phase: "extracting", current, total });
+        });
         // Locate the target .txt chat file inside the uncompressed folder
         chatFilePath = await findChatFile(importDir);
     }
@@ -112,8 +140,15 @@ async function runImportPipeline({
                 repository.insertBatch(messageBuffer);
                 messageBuffer = [];
             }
+        },
+        (bytesRead, totalBytes) => {
+            reportProgress({ phase: "importing", current: bytesRead, total: totalBytes });
         }
     );
+
+    // Bytes-read has reached 100%; the remaining work is the final tail batch
+    // and participant update, whose duration is unknown.
+    reportProgress({ phase: "saving" });
 
     // Flush remaining messages left in the buffer tail
     if (messageBuffer.length > 0) {

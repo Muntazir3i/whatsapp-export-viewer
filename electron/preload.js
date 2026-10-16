@@ -55,4 +55,15 @@ contextBridge.exposeInMainWorld("api", {
      * @returns {Promise<Array<Object>>} Older message records.
      */
     loadMoreMessages: (chatId, cursorId) => ipcRenderer.invoke("load-messages", chatId, cursorId),
+
+    /**
+     * Subscribes to import progress events emitted by the main process.
+     * @param {Function} callback - Receives `{ phase, percent, current, total }`.
+     * @returns {Function} Unsubscribe function that removes the listener.
+     */
+    onImportProgress: (callback) => {
+        const listener = (_event, payload) => callback(payload);
+        ipcRenderer.on("import-progress", listener);
+        return () => ipcRenderer.removeListener("import-progress", listener);
+    },
 });
