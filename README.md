@@ -65,10 +65,10 @@ WhatsApp allows users to export individual and group chat logs as plain `.txt` f
 
 ### Universal Export Parsing (ETL Pipeline)
 - **Multi-Format Ingestion**: Supports direct import of raw `.txt` files as well as compressed `.zip` export archives.
-- **Cross-Platform Timestamp Normalization**: Handles diverse WhatsApp date-time conventions across Android (e.g., `DD/MM/YY, HH:MM - Sender: Message`) and iOS (e.g., `[DD/MM/YY, HH:MM:SS PM] Sender: Message`).
-- **Unicode Sanitization**: Automatically strips invisible directional formatting marks (Left-to-Right `\u200e`, Right-to-Left `\u200f`, Byte Order Marks `\ufeff`, and narrow non-breaking spaces) commonly embedded by mobile export routines.
+- **Android Export Format Support**: Parses the standard Android export line format (`DD/MM/YY, HH:MM - Sender: Message`), including multi-line messages and system notices. iOS bracket-style exports (`[DD/MM/YY, HH:MM:SS] Sender: Message`) are not yet supported — see the roadmap.
 - **Memory-Efficient Streaming**: Employs Node.js stream readers and line buffers to parse large export files line-by-line without overloading system memory.
 - **Transactional Batch Insertion**: Commits messages in batches of 1,000 using SQLite transactions, ensuring rapid ingestion even for conversations containing tens of thousands of messages.
+- **Phase-Labeled Import Progress**: Reports import progress to the UI in real time as a determinate bar labeled by phase — archive extraction (`n/total files`), message ingestion (`X%`), and a final saving step — throttled so only phase or integer-percentage changes are emitted.
 
 ### Import Conflict Resolution
 - **Duplicate Collision Detection**: Pre-checks chat names against the local database prior to writing.
@@ -102,8 +102,9 @@ The project is structured according to Electron's security best practices, stric
 +---------------------------------+---------------------------------+
                                   |
                       IPC Channels (invoke / handle)
-                      [ get-chats, get-messages,
-                        import-chat, delete-chat ]
+                      [ get-chats, get-messages, load-messages,
+                        import-chat, import-chat-with-name, delete-chat ]
+                      [ import-progress  (main -> renderer) ]
                                   |
 +---------------------------------v---------------------------------+
 |                        PRELOAD SCRIPT BRIDGE                      |
@@ -182,6 +183,7 @@ whatsapp-export-viewer/
 │   │   ├── messageParser.js         # Timestamp regex matching and line buffering
 │   │   └── reader.js                # readline interface file streaming
 │   ├── services/
+│   │   ├── appPaths.js              # Single source of truth for resolving userData directories
 │   │   ├── chatFileService.js       # Extracted directory deletion and filesystem cleanup
 │   │   ├── chatService.js           # Business logic service coordinating database operations
 │   │   └── importChat.js            # Path validation, ZIP unzipping, and text file discovery
@@ -213,7 +215,7 @@ The following features represent missing capabilities that are targeted for futu
 - **Roadmap Goal**: Add options to export viewed conversations into formatted PDF files, standalone HTML archives, or JSON data for backup and archival purposes.
 
 ### 5. Chat Statistics & Analytics Dashboard
-- **Current Limitation**: Only raw message count and timestamp are visible.
+- **Current Limitation**: Only the last message preview and its timestamp are shown per chat; there is no aggregate statistics view.
 - **Roadmap Goal**: Provide a statistics drawer displaying total messages exchanged, most active hours/days, message count by participant, and interactive timeline graphs.
 
 ### 6. Voice Message Audio Player
@@ -227,6 +229,14 @@ The following features represent missing capabilities that are targeted for futu
 ### 8. Message Bookmarking and Starred Messages
 - **Current Limitation**: No mechanism to bookmark specific messages.
 - **Roadmap Goal**: Allow users to "star" critical messages and browse starred items from a dedicated sidebar tab.
+
+### 9. iOS Export Format Support
+- **Current Limitation**: Only the Android export line format is parsed; iOS bracket-style exports (`[DD/MM/YY, HH:MM:SS] Sender: Message`) are not recognized.
+- **Roadmap Goal**: Add an iOS-aware parser and timestamp normalization so exports from iOS devices import correctly.
+
+### 10. Unicode Formatting Mark Sanitization
+- **Current Limitation**: Invisible directional marks (`\u200e`, `\u200f`), byte order marks (`\ufeff`), and narrow non-breaking spaces embedded by some export routines are currently preserved verbatim in message text and sender names.
+- **Roadmap Goal**: Strip these invisible characters during parsing so messages and participant names render cleanly.
 
 ---
 
@@ -341,7 +351,7 @@ Contributions, bug reports, and enhancements are welcomed. To maintain code qual
 ### Coding Standards
 
 - **Module Format**: Use standard ES Modules (`import` / `export`) throughout both the Electron backend and React frontend.
-- **Documentation**: Write JSDoc comments for all exported functions, classes, React components, and IPC handlers.
+- **Documentation**: Add JSDoc to exported functions, classes, React components, and IPC handlers, documenting intent, contracts, and edge cases — not a restatement of the parameter or method name.
 - **Renderer Linting**: Ensure your React code conforms to the project ESLint configuration:
   ```bash
   npm run lint --prefix renderer
