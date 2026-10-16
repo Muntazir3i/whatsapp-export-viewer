@@ -62,7 +62,7 @@ export function useMessages(chatId) {
         }
         setMessages((prev) => [...result, ...prev]);
       }).catch((err) => {
-        console.log(err);
+        console.error(err);
       })
 
   }

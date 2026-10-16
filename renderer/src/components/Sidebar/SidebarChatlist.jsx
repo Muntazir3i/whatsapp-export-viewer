@@ -58,9 +58,7 @@ export const SidebarChatlist = ({
   const handleConfirmDelete = async (chat) => {
     try {
       if (removeChat) {
-        const result = await removeChat(chat.id, chat.name);
-        console.log(chat);
-        console.log('[SidebarChatlist] Chat deleted:', result);
+        await removeChat(chat.id, chat.name);
       }
     } catch (err) {
       console.error('[SidebarChatlist] Error deleting chat:', err);
@@ -69,19 +67,15 @@ export const SidebarChatlist = ({
 
   /**
    * Handler for editing chat name context menu action.
-   * @param {Object} chat
    */
-  const handleEditName = (chat) => {
-    console.log('[SidebarChatlist] Edit name requested for:', chat);
+  const handleEditName = () => {
     // Future modal or inline rename handler hook
   };
 
   /**
    * Handler for muting notifications context menu action.
-   * @param {Object} chat
    */
-  const handleMute = (chat) => {
-    console.log('[SidebarChatlist] Mute notifications requested for:', chat);
+  const handleMute = () => {
     // Future mute toggle handler hook
   };
 

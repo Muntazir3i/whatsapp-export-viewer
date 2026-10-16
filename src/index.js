@@ -6,7 +6,7 @@
  */
 
 import { ChatRepository } from "./db/schema.js";
-import { extractChatMetadata, streamChatMessages, ConsoleProgressReporter } from "./parser/importer.js";
+import { extractChatMetadata, streamChatMessages } from "./parser/importer.js";
 import { chatRepository as ChatQueryRepository } from "./db/chatRepository.js";
 import { grabFileLocation, extractZip, findChatFile } from "./services/importChat.js";
 
@@ -23,21 +23,18 @@ const BATCH_SIZE = 1000;
  * @returns {Promise<boolean>} Resolves to `true` if a chat with the same name already exists (collision detected), or `false` on successful import.
  */
 export async function main(fileName, db, customName, userDataPath) {
-    // 1. Initialize progress reporter for console updates
-    const progressReporter = new ConsoleProgressReporter();
-
-    // 2. Resolve file path, target import directory, and format type (.zip vs .txt)
+    // 1. Resolve file path, target import directory, and format type (.zip vs .txt)
     const { filePath, importDir, isZip } = await grabFileLocation(fileName, customName, userDataPath);
 
-    // 3. Initialize repository instances for database writes and existence queries
+    // 2. Initialize repository instances for database writes and existence queries
     const repository = new ChatRepository(db);
     const queryRepository = new ChatQueryRepository(db);
 
-    // 4. Extract initial chat session metadata (e.g., chat name derived from filename)
+    // 3. Extract initial chat session metadata (e.g., chat name derived from filename)
     let chatFilePath = filePath;
     const chatMetadata = extractChatMetadata(chatFilePath);
 
-    // 5. Apply custom name override if specified, or check for existing chat name collision
+    // 4. Apply custom name override if specified, or check for existing chat name collision
     if (customName) {
         chatMetadata.name = customName;
     } else {
@@ -48,15 +45,14 @@ export async function main(fileName, db, customName, userDataPath) {
         }
     }
 
-    // 6. Execute ETL Import Pipeline (ZIP extraction, parsing, and transactional batch loading)
+    // 5. Execute ETL Import Pipeline (ZIP extraction, parsing, and transactional batch loading)
     await runImportPipeline({
         filePath,
         importDir,
         isZip,
         chatFilePath,
         chatMetadata,
-        repository,
-        progressReporter
+        repository
     });
 
     return false;
@@ -73,7 +69,6 @@ export async function main(fileName, db, customName, userDataPath) {
  * @param {string} options.chatFilePath - Resolved path to the text chat file.
  * @param {Object} options.chatMetadata - Extracted chat metadata object.
  * @param {ChatRepository} options.repository - Database writing repository instance.
- * @param {ConsoleProgressReporter} options.progressReporter - Progress reporting logger instance.
  * @returns {Promise<void>}
  */
 async function runImportPipeline({
@@ -82,17 +77,11 @@ async function runImportPipeline({
     isZip,
     chatFilePath,
     chatMetadata,
-    repository,
-    progressReporter
+    repository
 }) {
     // Extract ZIP archive if applicable
     if (isZip) {
-        progressReporter.updateZip(0, 1);
-        await extractZip(filePath, importDir, (current, total) => {
-            progressReporter.updateZip(current, total);
-        });
-        progressReporter.completeZip();
-
+        await extractZip(filePath, importDir);
         // Locate the target .txt chat file inside the uncompressed folder
         chatFilePath = await findChatFile(importDir);
     }
@@ -114,18 +103,15 @@ async function runImportPipeline({
                 ...parsedMessage
             });
 
-            for(const msg of messageBuffer){
-                    participants.add(msg.sender)
-                }
+            for (const msg of messageBuffer) {
+                participants.add(msg.sender)
+            }
 
             // Flush buffer when batch limit is reached
             if (messageBuffer.length >= BATCH_SIZE) {
                 repository.insertBatch(messageBuffer);
                 messageBuffer = [];
             }
-        },
-        (bytesRead, totalBytes) => {
-            progressReporter.update(bytesRead, totalBytes);
         }
     );
 
@@ -134,9 +120,5 @@ async function runImportPipeline({
         repository.insertBatch(messageBuffer);
     }
 
-    progressReporter.complete();
-
-    let updatedChatRecord = repository.updateParticipants(chatId,participants)
-
-    console.log("Chat Record Created:", updatedChatRecord);
+    repository.updateParticipants(chatId, participants);
 }

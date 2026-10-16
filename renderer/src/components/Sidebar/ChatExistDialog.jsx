@@ -39,7 +39,6 @@ export const ChatExistDialog = ({ setExist, path, onImportSuccess }) => {
 
     try {
       const result = await importChatWithName(path, trimmedName);
-      console.log("[ChatExistDialog] Rename import result:", result);
 
       if (result?.success) {
         // Trigger parent chat list refetch to re-render newly added chat

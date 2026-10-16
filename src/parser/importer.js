@@ -1,9 +1,9 @@
 /**
  * @file importer.js
- * @description High-level stream importer for reading WhatsApp export files, tracking import progress, and invoking callbacks for parsed messages.
+ * @description High-level stream importer for reading WhatsApp export files and invoking callbacks for parsed messages.
  */
 
-import { createLineReader, getFileByteSize } from "./reader.js";
+import { createLineReader } from "./reader.js";
 import { MessageStreamBuffer } from "./messageParser.js";
 
 import path from "path";
@@ -37,97 +37,17 @@ export function extractChatMetadata(filePath) {
 }
 
 /**
- * UI Reporter that renders a CLI ASCII progress bar for extraction and message ingestion.
- */
-export class ConsoleProgressReporter {
-    /**
-     * @param {number} [barWidth=30] - Character width of the progress bar.
-     */
-    constructor(barWidth = 30) {
-        this.barWidth = barWidth;
-        this.lastRenderedPercent = "";
-    }
-
-    /**
-     * Renders or updates progress output on stdout for streaming file reads.
-     * 
-     * @param {number} bytesRead - Bytes processed so far.
-     * @param {number} totalBytes - Total file byte size.
-     */
-    update(bytesRead, totalBytes) {
-        const progressFraction = totalBytes > 0 ? bytesRead / totalBytes : 1;
-        const formattedPercent = (progressFraction * 100).toFixed(1);
-
-        if (formattedPercent !== this.lastRenderedPercent) {
-            this.lastRenderedPercent = formattedPercent;
-            const filledWidth = Math.round(progressFraction * this.barWidth);
-            const progressBar = "█".repeat(filledWidth) + "-".repeat(this.barWidth - filledWidth);
-
-            process.stdout.write(`\rImporting: [${progressBar}] ${formattedPercent}%`);
-        }
-    }
-
-    /**
-     * Renders or updates ZIP extraction progress on stdout.
-     * 
-     * @param {number} currentEntry - Current entry number extracted.
-     * @param {number} totalEntries - Total number of entries in ZIP.
-     */
-    updateZip(currentEntry, totalEntries) {
-        const progressFraction = totalEntries > 0 ? currentEntry / totalEntries : 1;
-        const formattedPercent = (progressFraction * 100).toFixed(1);
-
-        if (formattedPercent !== this.lastRenderedPercent) {
-            this.lastRenderedPercent = formattedPercent;
-            const filledWidth = Math.round(progressFraction * this.barWidth);
-            const progressBar = "█".repeat(filledWidth) + "-".repeat(this.barWidth - filledWidth);
-
-            process.stdout.write(`\rUnzipping: [${progressBar}] ${formattedPercent}% (${currentEntry}/${totalEntries})`);
-        }
-    }
-
-    /**
-     * Prints completion message for ZIP extraction.
-     */
-    completeZip() {
-        process.stdout.write("\n✅ ZIP extraction complete.\n");
-        this.lastRenderedPercent = "";
-    }
-
-    /**
-     * Prints completion message and moves stdout to a new line.
-     */
-    complete() {
-        process.stdout.write("\nImport complete.\n");
-    }
-}
-
-/**
  * Streams messages line-by-line from a text file and invokes a callback for each parsed message.
  *
  * @param {string} filePath - Path to the WhatsApp export `.txt` file.
  * @param {Function} onMessageParsed - Async callback `(messageObj) => Promise<void>` when a message is ready.
- * @param {Function} [onProgress] - Optional progress callback `(bytesRead, totalBytes) => void`.
  */
-export async function streamChatMessages(filePath, onMessageParsed, onProgress) {
+export async function streamChatMessages(filePath, onMessageParsed) {
     const lineReader = createLineReader(filePath);
-    const totalBytes = getFileByteSize(filePath);
-    let bytesRead = 0;
-
     const messageBuffer = new MessageStreamBuffer();
 
     for await (const line of lineReader) {
-        if (line.length === 0){
-            bytesRead += Buffer.byteLength(line) + 1;
-            continue;
-        } 
-
-        // Byte tracking (+1 byte for newline character)
-        bytesRead += Buffer.byteLength(line) + 1;
-
-        if (onProgress) {
-            onProgress(bytesRead, totalBytes);
-        }
+        if (line.length === 0) continue;
 
         const parsedMessage = messageBuffer.processLine(line);
         if (parsedMessage) {
@@ -141,6 +61,3 @@ export async function streamChatMessages(filePath, onMessageParsed, onProgress) 
         await onMessageParsed(finalMessage);
     }
 }
-
-
-

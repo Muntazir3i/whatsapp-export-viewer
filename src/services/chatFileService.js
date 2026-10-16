@@ -19,8 +19,6 @@ export async function deleteChatFiles(chatName, userDataPath) {
             recursive: true,
             force: true, // Do not throw if directory does not exist (e.g. .txt import)
         });
-
-        console.log(`Folder deleted successfully: ${folderPath}`);
     } catch (err) {
         console.error(`Error deleting folder ${folderPath}:`, err.message);
     }

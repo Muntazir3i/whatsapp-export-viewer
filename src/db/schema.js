@@ -9,8 +9,6 @@
  * @param {import("better-sqlite3").Database} db - SQLite database instance.
  */
 export function createSchema(db) {
-    console.log("Checking database schema...");
-
     db.exec(
         `
         CREATE TABLE IF NOT EXISTS chats(
@@ -33,8 +31,6 @@ export function createSchema(db) {
 
         `
     );
-
-    console.log("Database schema ready.");
 }
 
 /**
@@ -94,7 +90,6 @@ export class ChatRepository {
             name: chatData.name,
             file_name: chatData.file_name
         });
-        // console.log("Chat Record Created:", insertedRow);
         return insertedRow;
     }
 

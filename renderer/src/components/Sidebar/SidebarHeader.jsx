@@ -32,18 +32,9 @@ export const SidebarHeader = ({ onImportSuccess }) => {
       setPath(result?.filePath || "");
 
       if (result?.success && !result?.exist) {
-        console.log(
-          "[SidebarHeader] Chat imported successfully:",
-          result.filePath
-        );
-
         if (onImportSuccess) {
           onImportSuccess();
         }
-      } else if (result?.canceled) {
-        console.log(
-          "[SidebarHeader] Import file selection canceled by user."
-        );
       } else if (result?.error) {
         console.error("[SidebarHeader] Import failed:", result.error);
       }

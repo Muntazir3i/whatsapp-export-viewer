@@ -36,15 +36,10 @@ export function createDatabaseConnection(dbName = "chats.db", userDataPath) {
     }
 
     const dbPath = path.join(userDataPath, dbName);
-
-    console.log(`Opening database: ${dbPath}`);
-
     const db = new Database(dbPath);
 
     // Enable SQLite foreign key constraint enforcement
     db.pragma("foreign_keys = ON");
-
-    console.log("Database connected successfully.");
 
     return db;
 }
