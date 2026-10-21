@@ -99,7 +99,7 @@ export class ChatRepository {
 
     /**
      * Inserts a single message row.
-     * @param {Object} messageData - Row with chat_id, sender, message, timestamp, type.
+     * @param {Object} messageData - Row with chat_id, sender, message, timestamp, type, extension, category.
      */
     insertMessage(messageData) {
         this.insertMessageStmt.run({

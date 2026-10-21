@@ -53,39 +53,37 @@ export function parseMessageText(rawMessageText) {
 }
 
 /**
- * Classifies a parsed WhatsApp message and assigns a message type.
+ * Classifies a parsed WhatsApp message and assigns a type.
  *
- * Determines whether the message is a normal text message, media placeholder,
- * deleted message, or a WhatsApp system event, and returns the original
- * message object with an added `type` property.
+ * Handles system notices, media placeholders, deleted notices, and document
+ * attachments (`<name> (file attached)`). Attachments also get a normalized
+ * `extension` and a coarse `category` (image, video, audio, document, archive);
+ * both are `null` for every other message type.
  *
  * @param {Object} msgObj - Parsed message object containing `sender`, `message`, and `timestamp`.
- * @returns {Object} Message object with an additional `type` property.
+ * @returns {Object} Message object with `type`, `extension`, and `category`.
  */
-
-
-
 export function classifyMessage(msgObj) {
     if (msgObj.sender === null) {
-        return { ...msgObj, type: "system", extension:null, category:null }
+        return { ...msgObj, type: "system", extension: null, category: null }
 
     } else if (msgObj.message === "<Media omitted>") {
-        return { ...msgObj, type: "media", extension:null, category:null }
+        return { ...msgObj, type: "media", extension: null, category: null }
 
     } else if (msgObj.message === "You deleted this message" || msgObj.message === "This message was deleted") {
-        return { ...msgObj, type: "deleted", extension:null, category:null }
+        return { ...msgObj, type: "deleted", extension: null, category: null }
 
     } else if (msgObj.message.endsWith("(file attached)")) {
-        let index = msgObj.message.indexOf("(file attached)")
-        let fileName = msgObj.message.slice(0, index).trim();
+        const fileName = msgObj.message.slice(0, msgObj.message.indexOf("(file attached)")).trim();
 
-        let dotIndex = fileName.lastIndexOf(".")
-        let extension = fileName.slice(dotIndex).trim();
-        let category = extensionToCategory[extension];
+        // Only a dotted suffix after at least one character counts as an extension.
+        const dotIndex = fileName.lastIndexOf(".");
+        const extension = dotIndex > 0 ? fileName.slice(dotIndex).toLowerCase() : null;
+        const category = extension ? extensionToCategory[extension] ?? null : null;
 
-        return { ...msgObj, message:fileName, extension: extension, type: "file", category:category }
+        return { ...msgObj, message: fileName, extension, category, type: "file" }
     } else {
-        return { ...msgObj, type: "text", extension: null, category:null }
+        return { ...msgObj, type: "text", extension: null, category: null }
     }
 }
 

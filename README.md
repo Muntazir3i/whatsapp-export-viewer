@@ -330,7 +330,9 @@ The application initializes a SQLite database (`chats.db`).
 | `sender` | `TEXT` | | Participant name, or `NULL` for system-generated notices |
 | `message` | `TEXT` | | Extracted message text payload |
 | `timestamp` | `TEXT` | `NOT NULL` | Formatted date and time string parsed from export |
-| `type` | `TEXT` | `NOT NULL` | Message classification (`text`, `media`, `deleted`, `system`) |
+| `type` | `TEXT` | `NOT NULL` | Message classification (`text`, `media`, `deleted`, `system`, `file`) |
+| `extension` | `TEXT` | | Normalized lowercase attachment extension (e.g., `.pdf`), or `NULL` |
+| `category` | `TEXT` | | Attachment category (`image`, `video`, `audio`, `document`, `archive`), or `NULL` |
 
 ---
 
