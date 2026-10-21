@@ -16,7 +16,7 @@ const __dirname = path.dirname(__filename);
  * In development, ELECTRON_DEV=true is set in the npm script.
  * In packaged production builds, this env var is never set.
  */
-const isDev = process.env.ELECTRON_DEV === "true";
+const isDev = true;
 
 // Store all runtime data (database + extracted exports) in the OS user-data
 // directory in BOTH development and production. This keeps the source tree clean,
