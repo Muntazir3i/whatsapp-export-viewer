@@ -26,6 +26,8 @@ export function createSchema(db) {
             message TEXT,
             timestamp TEXT NOT NULL,
             type TEXT NOT NULL,
+            extension TEXT,
+            category TEXT,
             FOREIGN KEY (chat_id) REFERENCES chats (id) ON DELETE CASCADE
         );
 
@@ -53,8 +55,8 @@ export class ChatRepository {
         `);
 
         this.insertMessageStmt = this.db.prepare(`
-            INSERT INTO messages (chat_id, sender, message, timestamp, type)
-            VALUES (@chat_id, @sender, @message, @timestamp, @type)
+            INSERT INTO messages (chat_id, sender, message, timestamp, type, extension, category)
+            VALUES (@chat_id, @sender, @message, @timestamp, @type, @extension, @category)
         `);
 
         // Pre-compile statement for updating participants and returning the row
@@ -73,7 +75,9 @@ export class ChatRepository {
                     sender: msg.sender,
                     message: msg.message,
                     timestamp: msg.timestamp,
-                    type: msg.type
+                    type: msg.type,
+                    extension:msg.extension,
+                    category:msg.category,
                 });
             }
         });
@@ -103,7 +107,9 @@ export class ChatRepository {
             sender: messageData.sender,
             message: messageData.message,
             timestamp: messageData.timestamp,
-            type: messageData.type
+            type: messageData.type,
+            extension:messageData.extension,
+            category:messageData.category,
         });
     }
 

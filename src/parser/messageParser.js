@@ -1,3 +1,5 @@
+import { extensionToCategory } from "../utils/fileTypes.js";
+
 /**
  * @file messageParser.js
  * @description Logic for identifying message start lines, parsing WhatsApp export line formats, and building structured message objects.
@@ -61,15 +63,29 @@ export function parseMessageText(rawMessageText) {
  * @returns {Object} Message object with an additional `type` property.
  */
 
+
+
 export function classifyMessage(msgObj) {
     if (msgObj.sender === null) {
-        return { ...msgObj, type: "system" }
+        return { ...msgObj, type: "system", extension:null, category:null }
+
     } else if (msgObj.message === "<Media omitted>") {
-        return { ...msgObj, type: "media" }
+        return { ...msgObj, type: "media", extension:null, category:null }
+
     } else if (msgObj.message === "You deleted this message" || msgObj.message === "This message was deleted") {
-        return { ...msgObj, type: "deleted" }
+        return { ...msgObj, type: "deleted", extension:null, category:null }
+
+    } else if (msgObj.message.endsWith("(file attached)")) {
+        let index = msgObj.message.indexOf("(file attached)")
+        let fileName = msgObj.message.slice(0, index).trim();
+
+        let dotIndex = fileName.lastIndexOf(".")
+        let extension = fileName.slice(dotIndex).trim();
+        let category = extensionToCategory[extension];
+
+        return { ...msgObj, message:fileName, extension: extension, type: "file", category:category }
     } else {
-        return { ...msgObj, type: "text" }
+        return { ...msgObj, type: "text", extension: null, category:null }
     }
 }
 
