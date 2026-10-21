@@ -1,4 +1,4 @@
-import { extensionToCategory } from "../utils/fileTypes";
+import { extensionToCategory } from "../utils/fileTypes.js";
 
 /**
  * @file messageParser.js
