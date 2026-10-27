@@ -23,7 +23,7 @@
     "renderer:dev": "npm run dev --prefix renderer",
     "renderer:build": "npm run build --prefix renderer",
     "electron:dev": "ELECTRON_DEV=true electron .",
-    "dev": "concurrently \"npm run renderer:dev\" \"wait-on http://localhost:5174 && npm run electron:dev\"",
+    "dev": "concurrently \"npm run renderer:dev\" \"wait-on http://localhost:5173 && npm run electron:dev\"",
     "build": "npm run renderer:build && electron-builder",
     "build:win": "npm run renderer:build && electron-builder --win",
     "build:mac": "npm run renderer:build && electron-builder --mac",
