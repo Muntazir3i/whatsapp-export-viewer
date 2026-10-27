@@ -67,6 +67,7 @@ WhatsApp allows users to export individual and group chat logs as plain `.txt` f
 - **Multi-Format Ingestion**: Supports direct import of raw `.txt` files as well as compressed `.zip` export archives.
 - **Android Export Format Support**: Parses the standard Android export line format (`DD/MM/YY, HH:MM - Sender: Message`), including multi-line messages and system notices. iOS bracket-style exports (`[DD/MM/YY, HH:MM:SS] Sender: Message`) are not yet supported — see the roadmap.
 - **Memory-Efficient Streaming**: Employs Node.js stream readers and line buffers to parse large export files line-by-line without overloading system memory.
+- **Attachment Extraction & Classification**: Recognizes `name.ext (file attached)` lines, stores the extracted media path, and classifies the file by extension into `image`, `sticker`, `video`, `audio`, `document`, or `archive`.
 - **Transactional Batch Insertion**: Commits messages in batches of 1,000 using SQLite transactions, ensuring rapid ingestion even for conversations containing tens of thousands of messages.
 - **Phase-Labeled Import Progress**: Reports import progress to the UI in real time as a determinate bar labeled by phase — archive extraction (`n/total files`), message ingestion (`X%`), and a final saving step — throttled so only phase or integer-percentage changes are emitted.
 
@@ -78,7 +79,15 @@ WhatsApp allows users to export individual and group chat logs as plain `.txt` f
 - **Authentic Visual Language**: Styled using Tailwind CSS v4 in dark mode to mirror WhatsApp Web's signature color palette, typography, and spacing.
 - **Participant Identity Setup ("Who are you?")**: On first opening a chat, users choose their participant identity from the conversation participants. Outgoing messages are aligned to the right in green bubbles, and incoming messages appear on the left in dark gray bubbles with colored sender handles.
 - **Date Grouping**: Messages are separated by sticky date divider badges throughout the timeline.
-- **Message Types**: Distinct presentation for standard text, omitted media indicators (`<Media omitted>`), deleted message notices, and centered system messages (e.g., encryption notices).
+- **Message Types**: Distinct presentation for standard text, omitted media indicators (`<Media omitted>`), deleted notices, system events, and file attachments.
+
+### Media & Attachments
+- **Inline Image & Video Previews**: Images render as inline thumbnails and videos as previews with a play badge; both open in the fullscreen viewer.
+- **Fullscreen Lightbox**: Clicking an image, video, or sticker opens a portal-based viewer that closes on backdrop click, the close button, or `Escape`.
+- **Voice Note Player**: Audio attachments render as a WhatsApp-style player with play/pause, a seekable waveform, remaining time, keyboard seeking (←/→ ±5 s), and cycling playback speed (1x → 1.5x → 2x).
+- **Sticker Rendering**: `.webp` attachments are classified as stickers and drawn without a chat bubble, mirroring the WhatsApp client.
+- **Document & Attachment Cards**: Documents and other files render as cards with an icon and file name; unknown types fall back to a generic attachment card.
+- **Secure Media Streaming**: Attachments are served through a privileged `media://` protocol instead of `file://`. Stored paths are resolved relative to `<userData>/imports`, and any path that escapes that directory is rejected.
 
 ### Navigation, Search, and Pagination
 - **Real-Time Sidebar Search**: Filters chat sessions dynamically by contact name or message preview text.
@@ -99,12 +108,14 @@ The project is structured according to Electron's security best practices, stric
 |   [Window Management]       [ETL Engine]      [better-sqlite3]    |
 |   electron/main.js       src/parser/         src/db/              |
 |                          src/services/                            |
+|   [media:// protocol]  streams extracted attachments from disk    |
 +---------------------------------+---------------------------------+
                                   |
                       IPC Channels (invoke / handle)
                       [ get-chats, get-messages, load-messages,
                         import-chat, import-chat-with-name, delete-chat ]
                       [ import-progress  (main -> renderer) ]
+                      media:// protocol  (streamed attachments)
                                   |
 +---------------------------------v---------------------------------+
 |                        PRELOAD SCRIPT BRIDGE                      |
@@ -121,7 +132,7 @@ The project is structured according to Electron's security best practices, stric
 +-------------------------------------------------------------------+
 ```
 
-1. **Main Process (`electron/main.js`)**: Manages the application lifecycle, initializes the SQLite database (in `app.getPath("userData")` for both development and production), and registers IPC handlers.
+1. **Main Process (`electron/main.js`)**: Manages the application lifecycle, initializes the SQLite database (in `app.getPath("userData")` for both development and production), registers IPC handlers, and serves extracted attachments through a privileged `media://` protocol.
 2. **Preload Script (`electron/preload.js`)**: Securely exposes safe, typed wrapper methods on `window.api` with `contextIsolation: true` and `nodeIntegration: false`.
 3. **ETL Pipeline (`src/`)**: Decoupled Node.js modules responsible for extracting zip archives, streaming file contents, identifying message start boundaries, and persisting data.
 4. **Renderer Process (`renderer/`)**: A Single Page Application constructed with React 19 and Tailwind CSS v4, compiled using Vite.
@@ -162,7 +173,11 @@ whatsapp-export-viewer/
 │   │   ├── api/
 │   │   │   └── electronApi.js       # Safe wrapper methods calling window.api
 │   │   ├── components/
-│   │   │   ├── chat/                # Chat conversation viewport, bubbles, headers, inputs
+│   │   │   ├── chat/                # Chat viewport, bubbles, and media renderers
+│   │   │   │   ├── ChatView.jsx     # Message list, pagination, and date grouping
+│   │   │   │   ├── ChatMessage.jsx  # Bubbles + image/video/audio/sticker/document rendering
+│   │   │   │   ├── AudioPlayer.jsx  # Waveform voice-note player
+│   │   │   │   └── MediaLightbox.jsx# Fullscreen image/video viewer
 │   │   │   └── Sidebar/             # Sidebar list, search, context menu, modal dialogs
 │   │   ├── hooks/
 │   │   │   ├── useChats.js          # Data hook for fetching and refreshing chat sessions
@@ -183,10 +198,12 @@ whatsapp-export-viewer/
 │   │   ├── messageParser.js         # Timestamp regex matching and line buffering
 │   │   └── reader.js                # readline interface file streaming
 │   ├── services/
-│   │   ├── appPaths.js              # Single source of truth for resolving userData directories
+│   │   ├── appPaths.js              # userData paths + sandboxed media path resolution
 │   │   ├── chatFileService.js       # Extracted directory deletion and filesystem cleanup
 │   │   ├── chatService.js           # Business logic service coordinating database operations
 │   │   └── importChat.js            # Path validation, ZIP unzipping, and text file discovery
+│   ├── utils/
+│   │   └── fileTypes.js             # Extension → attachment category map
 │   └── index.js                     # ETL pipeline composition root (main entry function)
 ├── package.json                     # Root project configuration and build scripts
 └── README.md                        # Documentation
@@ -198,45 +215,37 @@ whatsapp-export-viewer/
 
 The following features represent missing capabilities that are targeted for future development:
 
-### 1. In-App Media Rendering
-- **Current Limitation**: Media messages currently display a placeholder indicator (`<Media omitted>`).
-- **Roadmap Goal**: Link parsed media references to actual images, audio notes, video clips, and document attachments extracted from export `.zip` files, rendering thumbnails and inline viewers.
-
-### 2. Search Within Conversations
+### 1. Search Within Conversations
 - **Current Limitation**: Search is currently limited to filtering chats in the sidebar.
 - **Roadmap Goal**: Implement an in-chat search bar allowing full-text search across messages within the selected conversation, featuring term highlighting, match counts, and jump-to-message navigation.
 
-### 3. Global Full-Text Search (SQLite FTS5)
+### 2. Global Full-Text Search (SQLite FTS5)
 - **Current Limitation**: No capability to search across all imported conversations simultaneously.
 - **Roadmap Goal**: Integrate SQLite FTS5 (Full-Text Search) virtual tables to enable instant keyword search spanning all imported chat databases.
 
-### 4. Conversation Export & Print
-- **Current Limitation**: Parsed chats can only be viewed inside the application.
-- **Roadmap Goal**: Add options to export viewed conversations into formatted PDF files, standalone HTML archives, or JSON data for backup and archival purposes.
-
-### 5. Chat Statistics & Analytics Dashboard
-- **Current Limitation**: Only the last message preview and its timestamp are shown per chat; there is no aggregate statistics view.
-- **Roadmap Goal**: Provide a statistics drawer displaying total messages exchanged, most active hours/days, message count by participant, and interactive timeline graphs.
-
-### 6. Voice Message Audio Player
-- **Current Limitation**: Audio notes (`.opus` / `.m4a` / `.mp3`) cannot be played.
-- **Roadmap Goal**: Integrate an embedded audio player with interactive progress scrub bars and playback speed controls (1x, 1.5x, 2x).
-
-### 7. Multi-File Chat Merging
+### 3. Multi-File Chat Merging
 - **Current Limitation**: Exporting the same chat at different times creates duplicate or separate entries.
 - **Roadmap Goal**: Provide an intelligent deduplication merge tool that combines multiple chronological exports of the same chat into a unified timeline without duplicate messages.
 
-### 8. Message Bookmarking and Starred Messages
+### 4. Message Bookmarking and Starred Messages
 - **Current Limitation**: No mechanism to bookmark specific messages.
 - **Roadmap Goal**: Allow users to "star" critical messages and browse starred items from a dedicated sidebar tab.
 
-### 9. iOS Export Format Support
+### 5. iOS Export Format Support
 - **Current Limitation**: Only the Android export line format is parsed; iOS bracket-style exports (`[DD/MM/YY, HH:MM:SS] Sender: Message`) are not recognized.
 - **Roadmap Goal**: Add an iOS-aware parser and timestamp normalization so exports from iOS devices import correctly.
 
-### 10. Unicode Formatting Mark Sanitization
+### 6. Unicode Formatting Mark Sanitization
 - **Current Limitation**: Invisible directional marks (`\u200e`, `\u200f`), byte order marks (`\ufeff`), and narrow non-breaking spaces embedded by some export routines are currently preserved verbatim in message text and sender names.
 - **Roadmap Goal**: Strip these invisible characters during parsing so messages and participant names render cleanly.
+
+### 7. Decoded Audio Waveforms
+- **Current Limitation**: The voice-note player draws a deterministic pseudo-waveform derived from the media path, not the actual decoded audio.
+- **Roadmap Goal**: Decode audio and render a real amplitude waveform, with played/unplayed regions matching the true audio.
+
+### 8. Animated Sticker Playback
+- **Current Limitation**: Stickers are rendered as static images; animated `.webp` stickers do not play.
+- **Roadmap Goal**: Support animated sticker playback, including the loop and transparency behavior of the WhatsApp client.
 
 ---
 
@@ -328,11 +337,15 @@ The application initializes a SQLite database (`chats.db`).
 | `id` | `INTEGER` | `PRIMARY KEY AUTOINCREMENT` | Sequential unique message identifier |
 | `chat_id` | `INTEGER` | `NOT NULL, FK -> chats(id)` | Cascading foreign key linking message to parent chat |
 | `sender` | `TEXT` | | Participant name, or `NULL` for system-generated notices |
-| `message` | `TEXT` | | Extracted message text payload |
+| `message` | `TEXT` | | Message text, or for `file` rows the stored media path (imports-relative, or absolute for legacy rows) |
 | `timestamp` | `TEXT` | `NOT NULL` | Formatted date and time string parsed from export |
 | `type` | `TEXT` | `NOT NULL` | Message classification (`text`, `media`, `deleted`, `system`, `file`) |
 | `extension` | `TEXT` | | Normalized lowercase attachment extension (e.g., `.pdf`), or `NULL` |
-| `category` | `TEXT` | | Attachment category (`image`, `video`, `audio`, `document`, `archive`), or `NULL` |
+| `category` | `TEXT` | | Attachment category (`image`, `sticker`, `video`, `audio`, `document`, `archive`), or `NULL` |
+
+### Media Storage
+
+Attachments extracted from `.zip` exports live on disk under `<userData>/imports/<ChatName>/`, next to the chat `.txt` file. For `file` messages, the `message` column stores a path relative to `<userData>/imports` (legacy rows may store an absolute path). The renderer never receives filesystem paths directly: it requests them through the `media://` protocol, and the main process rejects any path that resolves outside the imports directory. Deleting a chat removes both its database rows and its extracted media folder.
 
 ---
 
@@ -389,6 +402,12 @@ WhatsApp exports contain messages from multiple senders without explicitly speci
 When importing `.zip` archives, contents are unzipped into `<userData>/imports/<ChatName>` — the user's OS application data directory (`~/Library/Application Support/` on macOS, `%APPDATA%` on Windows, `~/.config/` on Linux) — in **both development and production**. This keeps extracted media out of the project tree and out of packaged builds.
 
 When a chat is deleted via the context menu, this folder and all associated records are permanently erased.
+
+#### Why do some attachments still show `<Media omitted>`?
+WhatsApp writes that placeholder when the export was created **without media**. The files were never included in the archive, so there is nothing to render. Re-export the chat with media included to view those attachments.
+
+#### How are attachments displayed?
+Images and videos render inline and open in a fullscreen lightbox. Audio notes use the built-in waveform player, stickers (`.webp`) render without a bubble, and documents or unknown file types render as attachment cards. Files are streamed through the `media://` protocol from `<userData>/imports/<ChatName>/`; paths outside that directory are rejected.
 
 ---
 
