@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { mediaUrl } from "../../api/electronApi.js";
+import { AudioPlayer } from "./AudioPlayer.jsx";
 import { MediaLightbox } from "./MediaLightbox.jsx";
 
 export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) => {
@@ -91,17 +92,7 @@ export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) =
                 </span>
               </button>
             ) : msg.category === "audio" ? (
-              <div className="min-w-0">
-                <audio
-                  src={mediaUrl(msg.message)}
-                  controls
-                  preload="metadata"
-                  className="block w-full max-w-full"
-                />
-                <p className="mt-1 text-xs text-[#aebac1] break-words">
-                  {msg.message.split(/[\\/]/).pop()}
-                </p>
-              </div>
+              <AudioPlayer src={mediaUrl(msg.message)} />
             ) : (
               <div className="flex items-center gap-3 rounded-md bg-black/10 p-3">
                 <div className="text-2xl" aria-hidden="true">
