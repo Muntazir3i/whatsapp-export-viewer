@@ -42,6 +42,37 @@ export const ChatView = ({
   // DOM REF: Ref attached to scrollable container for measuring scroll height and restoring position
   const scrollDivContainer = useRef(null);
 
+  // DOM REF: Wrapper around the message list, observed for height changes caused
+  // by images, stickers and videos finishing loading after the first render.
+  const scrollContentRef = useRef(null);
+
+  // Whether the viewport is currently pinned to the newest message.
+  const isPinnedToBottom = useRef(true);
+
+  /**
+   * KEEP PINNED TO BOTTOM:
+   * Media attachments load asynchronously, so the content height grows after the
+   * initial scroll. While the user is at the bottom, re-pin on every resize so
+   * the newest message stays in view instead of leaving the viewport mid-list.
+   */
+  useEffect(() => {
+    const container = scrollDivContainer.current;
+    const content = scrollContentRef.current;
+    if (!container || !content) return;
+
+    const keepAtBottom = () => {
+      if (!isPinnedToBottom.current || isLoadingMore) return;
+      container.scrollTop = container.scrollHeight;
+    };
+
+    // Jump straight to the newest message on mount.
+    keepAtBottom();
+
+    const observer = new ResizeObserver(keepAtBottom);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [isLoadingMore]);
+
   /**
    * PAGINATION EFFECT - PRESERVE SCROLL POSITION:
    * When older messages are loaded, they are prepended at the top of the array, increasing `scrollHeight`.
@@ -65,7 +96,10 @@ export const ChatView = ({
    * sets `isLoadingMore` to true, and invokes `loadMore(selectedChat.id)`.
    */
   const handleScroll = (event) => {
-    const { scrollTop, scrollHeight } = event.currentTarget;
+    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+
+    // Stay pinned only while the user is within ~80px of the newest message.
+    isPinnedToBottom.current = scrollHeight - (scrollTop + clientHeight) < 80;
 
     // Detect scroll top boundary
     if (scrollTop === 0 && hasMore && !isLoadingMore) {
@@ -93,7 +127,7 @@ export const ChatView = ({
 
       {/* Scrollable messages container with overflow protection against horizontal scrolling */}
       <div
-        className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3 bg-[#0b141a]"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 bg-[#0b141a]"
         onScroll={handleScroll}
         ref={scrollDivContainer}
         style={{
@@ -101,6 +135,7 @@ export const ChatView = ({
           backgroundSize: '24px 24px',
         }}
       >
+        <div ref={scrollContentRef} className="space-y-3">
         {/* PAGINATION UI: Rendered at the top of message history when older messages exist in SQLite database */}
         {hasMore && <LoadMoreButton handleLoadMore={handleLoadMore} isLoadingMore={isLoadingMore} />}
 
@@ -126,6 +161,7 @@ export const ChatView = ({
 
         {/* Target element for auto-scroll into view on initial load */}
         <div ref={messagesEndRef} />
+        </div>
       </div>
 
       {/* Bottom read-only input indicator */}

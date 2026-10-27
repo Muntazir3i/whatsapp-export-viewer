@@ -13,6 +13,9 @@ import { grabFileLocation, extractZip, findChatFile } from "./services/importCha
 /** Number of parsed messages to accumulate before performing a bulk transactional database insert. */
 const BATCH_SIZE = 1000;
 
+/** Number of parsed messages to accumulate before performing a bulk transactional database insert. */
+let userData = null;
+
 /**
  * Main ETL pipeline orchestrator for importing WhatsApp chat exports into SQLite.
  *
@@ -24,6 +27,8 @@ const BATCH_SIZE = 1000;
  * @returns {Promise<boolean>} Resolves to `true` if a chat with the same name already exists (collision detected), or `false` on successful import.
  */
 export async function main(fileName, db, customName, userDataPath, onProgress) {
+    userData = userDataPath
+
     // 1. Resolve file path, target import directory, and format type (.zip vs .txt)
     const { filePath, importDir, isZip } = await grabFileLocation(fileName, customName, userDataPath);
 
@@ -124,6 +129,7 @@ async function runImportPipeline({
 
     // Stream and parse messages line-by-line to minimize memory footprint
     await streamChatMessages(
+        userData,
         chatFilePath,
         async (parsedMessage) => {
             messageBuffer.push({
