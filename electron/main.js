@@ -1,22 +1,41 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, protocol, net } from "electron";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { chatRepository } from "../src/db/chatRepository.js";
 import { createDatabaseConnection } from "../src/db/database.js";
 import { chatServices } from "../src/services/chatService.js";
 import { createSchema } from "../src/db/schema.js";
 import { registerChatHandlers } from "./ipc/chatHandlers.js";
 import { registerImportHandlers } from "./ipc/importHandlers.js";
+import { resolveMediaPath } from "../src/services/appPaths.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Detect whether the app is running in development mode.
- * In development, ELECTRON_DEV=true is set in the npm script.
- * In packaged production builds, this env var is never set.
+ * Custom scheme used to stream imported media (images, video, audio) to the
+ * renderer. Chromium blocks `file://` subresources when the page is served from
+ * the Vite dev server origin, so media must go through a privileged scheme.
+ *
+ * Must be registered before the app is ready.
  */
-const isDev = true;
+protocol.registerSchemesAsPrivileged([
+    {
+        scheme: "media",
+        privileges: {
+            standard: true,
+            secure: true,
+            stream: true,
+            supportFetchAPI: true,
+        },
+    },
+]);
+
+/**
+ * Detect whether the app is running in development mode.
+ * Packaged builds always load the compiled renderer from disk.
+ */
+const isDev = !app.isPackaged;
 
 // Store all runtime data (database + extracted exports) in the OS user-data
 // directory in BOTH development and production. This keeps the source tree clean,
@@ -71,6 +90,27 @@ registerChatHandlers(cs, userDataPath);
 registerImportHandlers(db, userDataPath);
 
 app.whenReady().then(() => {
+    // Serve stored media through `media://imports/?path=<stored path>`.
+    // The stored path may be absolute (legacy rows) or relative to the imports directory.
+    protocol.handle("media", async (request) => {
+        try {
+            const storedPath = new URL(request.url).searchParams.get("path");
+            if (!storedPath) {
+                return new Response("Bad request", { status: 400 });
+            }
+
+            const absolutePath = resolveMediaPath(userDataPath, storedPath);
+            if (!absolutePath) {
+                return new Response("Forbidden", { status: 403 });
+            }
+
+            return await net.fetch(pathToFileURL(absolutePath).toString());
+        } catch (err) {
+            console.error("❌ Failed to serve media:", err.message || err);
+            return new Response("Not found", { status: 404 });
+        }
+    });
+
     createWindow();
 
     // macOS: re-create window when dock icon is clicked and no windows are open

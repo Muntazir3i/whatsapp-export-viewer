@@ -39,14 +39,19 @@ export function extractChatMetadata(filePath) {
 /**
  * Streams messages line-by-line from a text file and invokes a callback for each parsed message.
  *
+ * @param {string} userDataPath - OS userData directory supplied by the Electron main process.
  * @param {string} filePath - Path to the WhatsApp export `.txt` file.
  * @param {Function} onMessageParsed - Async callback `(messageObj) => Promise<void>` when a message is ready.
  * @param {Function} [onProgress] - Optional callback `(bytesRead, totalBytes) => void`.
  */
-export async function streamChatMessages(chatName, userDataPath, filePath, onMessageParsed, onProgress) {
+export async function streamChatMessages(userDataPath, filePath, onMessageParsed, onProgress) {
     const lineReader = createLineReader(filePath);
     const totalBytes = getFileByteSize(filePath);
     let bytesRead = 0;
+
+    // Media files are extracted next to the chat .txt file, which may live in a
+    // nested folder rather than directly under the imports directory.
+    const mediaDir = path.dirname(filePath);
 
     const messageBuffer = new MessageStreamBuffer();
 
@@ -59,14 +64,14 @@ export async function streamChatMessages(chatName, userDataPath, filePath, onMes
 
         if (line.length === 0) continue;
 
-        const parsedMessage = messageBuffer.processLine(line,userDataPath,chatName);
+        const parsedMessage = messageBuffer.processLine(line, mediaDir, userDataPath);
         if (parsedMessage) {
             await onMessageParsed(parsedMessage);
         }
     }
 
     // Flush final trailing message at end of stream
-    const finalMessage = messageBuffer.flush(userDataPath,chatName);
+    const finalMessage = messageBuffer.flush(mediaDir, userDataPath);
     if (finalMessage) {
         await onMessageParsed(finalMessage);
     }

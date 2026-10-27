@@ -5,6 +5,20 @@
  */
 
 /**
+ * Builds a protocol URL for a media path stored in the database.
+ *
+ * Chromium blocks `file://` subresources when the renderer is served over HTTP
+ * (the Vite dev server), so media is streamed by the main process through the
+ * privileged `media://` scheme instead.
+ *
+ * @param {string} storedPath - Absolute or imports-relative path from `messages.message`.
+ * @returns {string} URL usable as the `src` of an img/video/audio element.
+ */
+export function mediaUrl(storedPath) {
+  return `media://imports/?path=${encodeURIComponent(storedPath)}`;
+}
+
+/**
  * Fetches the list of all available chats from the SQLite database main process IPC.
  * @returns {Promise<Array<{id: string|number, name: string, lastMessage: string, timestamp: string}>>}
  */

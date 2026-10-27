@@ -1,2 +1,43 @@
 /* Global stylesheet importing Tailwind CSS v4 */
 @import "tailwindcss";
+
+/*
+ * Fullscreen media viewer animations.
+ * The backdrop fades in while the media scales up slightly, mirroring the
+ * open animation used by the WhatsApp client.
+ */
+@keyframes media-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes media-content-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.media-lightbox {
+  animation: media-backdrop-in 180ms ease-out both;
+}
+
+.media-lightbox-content {
+  animation: media-content-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-lightbox,
+  .media-lightbox-content {
+    animation: none;
+  }
+}
+

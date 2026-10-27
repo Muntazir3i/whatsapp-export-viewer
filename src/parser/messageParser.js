@@ -1,4 +1,6 @@
+import path from "node:path";
 import { extensionToCategory } from "../utils/fileTypes.js";
+import { toStoredMediaPath } from "../services/appPaths.js";
 
 /**
  * @file messageParser.js
@@ -60,10 +62,15 @@ export function parseMessageText(rawMessageText) {
  * `extension` and a coarse `category` (image, video, audio, document, archive);
  * both are `null` for every other message type.
  *
+ * For attachments the `message` field is replaced with the media path, stored
+ * relative to the imports directory whenever possible.
+ *
  * @param {Object} msgObj - Parsed message object containing `sender`, `message`, and `timestamp`.
+ * @param {string} mediaDir - Directory containing the chat file and its media attachments.
+ * @param {string} userDataPath - OS userData directory supplied by the Electron main process.
  * @returns {Object} Message object with `type`, `extension`, and `category`.
  */
-export function classifyMessage(msgObj,userDataPath,chatName) {
+export function classifyMessage(msgObj, mediaDir, userDataPath) {
     if (msgObj.sender === null) {
         return { ...msgObj, type: "system", extension: null, category: null }
 
@@ -81,7 +88,17 @@ export function classifyMessage(msgObj,userDataPath,chatName) {
         const extension = dotIndex > 0 ? fileName.slice(dotIndex).toLowerCase() : null;
         const category = extension ? extensionToCategory[extension] ?? null : null;
 
-        return { ...msgObj,  message: `${userDataPath}/imports/${chatName}/${fileName}`, extension, category, type: "file" }
+        // Media files are extracted next to the chat .txt file, which is not
+        // necessarily the imports root (exports may unpack into a nested folder).
+        const absoluteMediaPath = path.join(mediaDir, fileName);
+
+        return {
+            ...msgObj,
+            message: toStoredMediaPath(userDataPath, absoluteMediaPath),
+            extension,
+            category,
+            type: "file"
+        }
     } else {
         return { ...msgObj, type: "text", extension: null, category: null }
     }
@@ -100,13 +117,15 @@ export class MessageStreamBuffer {
      * Processes a single line read from the export stream.
      * 
      * @param {string} line - Current line from the chat file.
+     * @param {string} mediaDir - Directory containing the chat file and its media attachments.
+     * @param {string} userDataPath - OS userData directory supplied by the Electron main process.
      * @returns {Object|null} Parsed message object if a message boundary was completed, or null if accumulating.
      */
-    processLine(line,userDataPath,chatName) {
+    processLine(line, mediaDir, userDataPath) {
         if (isMessageStartLine(line)) {
             let completedMsg = null;
             if (this.buffer !== "") {
-                completedMsg = classifyMessage(parseMessageText(this.buffer),userDataPath,chatName);
+                completedMsg = classifyMessage(parseMessageText(this.buffer), mediaDir, userDataPath);
             }
             this.buffer = line;
             return completedMsg;
@@ -119,11 +138,13 @@ export class MessageStreamBuffer {
     /**
      * Flushes and returns any remaining message buffered at the end of stream.
      * 
+     * @param {string} mediaDir - Directory containing the chat file and its media attachments.
+     * @param {string} userDataPath - OS userData directory supplied by the Electron main process.
      * @returns {Object|null} Final message object, or null if buffer is empty.
      */
-    flush(userDataPath,chatName) {
+    flush(mediaDir, userDataPath) {
         if (this.buffer !== "") {
-            const finalMsg = classifyMessage(parseMessageText(this.buffer),userDataPath,chatName);
+            const finalMsg = classifyMessage(parseMessageText(this.buffer), mediaDir, userDataPath);
             this.buffer = "";
             return finalMsg;
         }

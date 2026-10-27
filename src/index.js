@@ -129,7 +129,6 @@ async function runImportPipeline({
 
     // Stream and parse messages line-by-line to minimize memory footprint
     await streamChatMessages(
-        chatRecord.name,
         userData,
         chatFilePath,
         async (parsedMessage) => {
