@@ -67,7 +67,9 @@ export const ChatWindow = ({ selectedChat }) => {
    */
   useEffect(() => {
     if (currentUser) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      // Jump instantly: media below may still be loading, and ChatView's
+      // ResizeObserver keeps the viewport pinned to the newest message.
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
     }
   }, [currentUser]);
 
