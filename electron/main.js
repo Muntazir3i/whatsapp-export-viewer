@@ -75,7 +75,7 @@ function createWindow() {
 
     if (isDev) {
         // Development: connect to Vite dev server for hot module replacement
-        win.loadURL("http://localhost:5174/");
+        win.loadURL("http://localhost:5173/");
         // Open DevTools automatically during development
         win.webContents.openDevTools();
     } else {

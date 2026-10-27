@@ -71,7 +71,7 @@
           ]
         }
       ],
-      "icon": "build/icon.ico"
+      "icon": "build/icon.png"
     },
     "mac": {
       "target": [
