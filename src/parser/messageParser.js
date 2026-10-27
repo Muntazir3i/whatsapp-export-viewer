@@ -63,7 +63,7 @@ export function parseMessageText(rawMessageText) {
  * @param {Object} msgObj - Parsed message object containing `sender`, `message`, and `timestamp`.
  * @returns {Object} Message object with `type`, `extension`, and `category`.
  */
-export function classifyMessage(msgObj) {
+export function classifyMessage(msgObj,userDataPath,chatName) {
     if (msgObj.sender === null) {
         return { ...msgObj, type: "system", extension: null, category: null }
 
@@ -81,7 +81,7 @@ export function classifyMessage(msgObj) {
         const extension = dotIndex > 0 ? fileName.slice(dotIndex).toLowerCase() : null;
         const category = extension ? extensionToCategory[extension] ?? null : null;
 
-        return { ...msgObj, message: fileName, extension, category, type: "file" }
+        return { ...msgObj,  message: `${userDataPath}/imports/${chatName}/${fileName}`, extension, category, type: "file" }
     } else {
         return { ...msgObj, type: "text", extension: null, category: null }
     }
@@ -102,11 +102,11 @@ export class MessageStreamBuffer {
      * @param {string} line - Current line from the chat file.
      * @returns {Object|null} Parsed message object if a message boundary was completed, or null if accumulating.
      */
-    processLine(line) {
+    processLine(line,userDataPath,chatName) {
         if (isMessageStartLine(line)) {
             let completedMsg = null;
             if (this.buffer !== "") {
-                completedMsg = classifyMessage(parseMessageText(this.buffer));
+                completedMsg = classifyMessage(parseMessageText(this.buffer),userDataPath,chatName);
             }
             this.buffer = line;
             return completedMsg;
@@ -121,9 +121,9 @@ export class MessageStreamBuffer {
      * 
      * @returns {Object|null} Final message object, or null if buffer is empty.
      */
-    flush() {
+    flush(userDataPath,chatName) {
         if (this.buffer !== "") {
-            const finalMsg = classifyMessage(parseMessageText(this.buffer));
+            const finalMsg = classifyMessage(parseMessageText(this.buffer),userDataPath,chatName);
             this.buffer = "";
             return finalMsg;
         }
