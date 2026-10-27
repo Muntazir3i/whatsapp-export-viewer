@@ -3,9 +3,11 @@ export const extensionToCategory = {
     ".jpg": "image",
     ".jpeg": "image",
     ".png": "image",
-    ".webp": "image",
     ".gif": "image",
     ".heic": "image",
+
+    // Stickers (WhatsApp exports stickers as .webp)
+    ".webp": "sticker",
 
     // Videos
     ".mp4": "video",

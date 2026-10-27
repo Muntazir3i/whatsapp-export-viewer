@@ -10,6 +10,21 @@ export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) =
   const mediaFileName =
     msg.type === "file" ? msg.message.split(/[\\/]/).pop() : null;
 
+  // WhatsApp exports stickers as .webp. Legacy rows were classified as images,
+  // so both the new "sticker" category and the extension are accepted.
+  const isSticker =
+    msg.type === "file" &&
+    (msg.category === "sticker" || msg.extension === ".webp");
+
+  // Stickers are shown without the chat bubble, like the real WhatsApp client.
+  const bubbleClassName = isSticker
+    ? "relative max-w-[85%] sm:max-w-[70%] min-w-0 text-sm"
+    : `relative max-w-[85%] sm:max-w-[70%] min-w-0 rounded-lg px-3 py-1.5 text-sm shadow ${
+        isOutgoing
+          ? "bg-[#005c4b] text-[#e9edef] rounded-tr-none"
+          : "bg-[#202c33] text-[#e9edef] rounded-tl-none"
+      }`;
+
   return (
     <>
 
@@ -32,13 +47,7 @@ export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) =
   </div>
 ) : (
   <div className={`flex ${isOutgoing ? "justify-end" : "justify-start"} w-full`}>
-    <div
-      className={`relative max-w-[85%] sm:max-w-[70%] min-w-0 rounded-lg px-3 py-1.5 text-sm shadow ${
-        isOutgoing
-          ? "bg-[#005c4b] text-[#e9edef] rounded-tr-none"
-          : "bg-[#202c33] text-[#e9edef] rounded-tl-none"
-      }`}
-    >
+    <div className={bubbleClassName}>
       {!isOutgoing && msg.sender && (
         <span className="block text-xs font-semibold text-[#53bdeb] mb-0.5 truncate">
           {msg.sender}
@@ -46,7 +55,21 @@ export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) =
       )}
 
       <div className="min-w-0">
-        {msg.type === "file" ? (
+        {isSticker ? (
+          <button
+            type="button"
+            onClick={() => setOpenMedia("image")}
+            aria-label="Open sticker preview"
+            className="block cursor-zoom-in rounded-md transition-transform duration-200 hover:scale-[1.04] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb]"
+          >
+            <img
+              src={mediaUrl(msg.message)}
+              alt={mediaFileName || "Sticker"}
+              className="block h-32 w-32 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)] sm:h-36 sm:w-36"
+              loading="lazy"
+            />
+          </button>
+        ) : msg.type === "file" ? (
           <div className="mb-2">
             {msg.category === "image" ? (
               <button
@@ -118,7 +141,7 @@ export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) =
           </p>
         )}
 
-        <div className="flex justify-end">
+        <div className={`flex justify-end ${isSticker ? "mt-1" : ""}`}>
           <span className="text-[10px] text-[#8696a0] whitespace-nowrap flex-shrink-0">
             {msg.timestamp}
           </span>
