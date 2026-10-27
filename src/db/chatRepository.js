@@ -18,7 +18,9 @@ export class chatRepository {
                 c.name, 
                 c.participants,
                 m.message AS lastMessage, 
-                m.timestamp 
+                m.timestamp,
+                m.type AS lastMessageType,
+                m.category AS lastMessageCategory
             FROM chats c
             LEFT JOIN messages m 
                 ON m.id = (
@@ -36,7 +38,9 @@ export class chatRepository {
                 c.name, 
                 c.participants,
                 m.message AS lastMessage, 
-                m.timestamp 
+                m.timestamp,
+                m.type AS lastMessageType,
+                m.category AS lastMessageCategory
             FROM chats c
             LEFT JOIN messages m 
                 ON m.id = (

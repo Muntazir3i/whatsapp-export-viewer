@@ -12,10 +12,9 @@ import { useEffect, useRef } from 'react';
  * @param {Object} props.chat - Selected chat object for context actions.
  * @param {Function} props.onClose - Callback function to close the menu.
  * @param {Function} props.onDelete - Callback to delete the selected chat.
- * @param {Function} props.onEditName - Callback to edit the selected chat name.
  * @returns {JSX.Element}
  */
-export const ContextMenu = ({ x, y, chat, onClose, onDelete, onEditName }) => {
+export const ContextMenu = ({ x, y, chat, onClose, onDelete }) => {
   const menuRef = useRef(null);
 
   // Close context menu when clicking outside or pressing Escape key
@@ -56,7 +55,7 @@ export const ContextMenu = ({ x, y, chat, onClose, onDelete, onEditName }) => {
       aria-label="Chat Context Menu"
     >
 
-      {/* Action 2: Delete Chat */}
+      {/* Delete Chat */}
       <button
         type="button"
         role="menuitem"

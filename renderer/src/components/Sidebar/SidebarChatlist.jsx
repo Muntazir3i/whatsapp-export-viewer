@@ -2,10 +2,37 @@ import { useState } from 'react';
 import { ContextMenu } from './ContextMenu.jsx';
 import { DeleteChatDialog } from './DeleteChatDialog.jsx';
 
+/** Sidebar preview labels for each attachment category. */
+const FILE_PREVIEWS = {
+  image: '📷 Photo',
+  sticker: 'Sticker',
+  video: '🎬 Video',
+  audio: '🎤 Voice message',
+  document: '📄 Document',
+  archive: '📦 Archive',
+};
+
+/**
+ * Builds the sidebar preview text. File messages store a media path in
+ * `lastMessage`, so rendering it raw would expose a filesystem path.
+ *
+ * @param {Object} chat - Chat row with `lastMessageType` and `lastMessageCategory`.
+ * @returns {string} Preview text for the chat list.
+ */
+function formatLastMessage(chat) {
+  if (chat.lastMessageType === 'file') {
+    return FILE_PREVIEWS[chat.lastMessageCategory] || '📎 Attachment';
+  }
+  if (chat.lastMessageType === 'media') {
+    return 'Media omitted';
+  }
+  return chat.lastMessage ?? '';
+}
+
 /**
  * Component to render the scrollable list of filtered chats in the sidebar.
  * Displays loading indicators, error notices, empty results, and individual chat items.
- * Supports custom right-click context menu actions (edit, mute, delete).
+ * Supports a custom right-click context menu for deleting chats.
  *
  * @component
  * @param {Object} props
@@ -65,20 +92,6 @@ export const SidebarChatlist = ({
     }
   };
 
-  /**
-   * Handler for editing chat name context menu action.
-   */
-  const handleEditName = () => {
-    // Future modal or inline rename handler hook
-  };
-
-  /**
-   * Handler for muting notifications context menu action.
-   */
-  const handleMute = () => {
-    // Future mute toggle handler hook
-  };
-
   return (
     <div className="flex-1 overflow-y-auto relative">
       {/* Loading state indicator */}
@@ -130,7 +143,7 @@ export const SidebarChatlist = ({
                 )}
               </div>
               <p className="text-[#8696a0] text-sm truncate text-left">
-                {chat.lastMessage}
+                {formatLastMessage(chat)}
               </p>
             </div>
           </div>
@@ -152,8 +165,6 @@ export const SidebarChatlist = ({
           chat={contextMenu.chat}
           onClose={() => setContextMenu(null)}
           onDelete={handleDelete}
-          onEditName={handleEditName}
-          onMute={handleMute}
         />
       )}
 

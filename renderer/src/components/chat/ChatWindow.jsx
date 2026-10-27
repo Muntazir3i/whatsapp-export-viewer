@@ -50,7 +50,7 @@ export const ChatWindow = ({ selectedChat }) => {
       console.error("Failed to parse participants JSON:", e);
       return [];
     }
-  }, [selectedChat?.participants]);
+  }, [selectedChat]);
 
   /**
    * Determines if a message is sent by the currently selected user profile.

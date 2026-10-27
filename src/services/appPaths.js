@@ -32,6 +32,38 @@ export function getImportsBaseDir(userDataPath) {
 }
 
 /**
+ * Resolves a chat's extraction folder inside the imports directory.
+ *
+ * Chat names come from export file names or user-provided custom renames, so a
+ * name containing path separators or `..` must never escape `<userData>/imports`.
+ *
+ * @param {string} userDataPath - OS user-data directory supplied by the Electron main process.
+ * @param {string} chatName - Contact name or user-provided custom name.
+ * @returns {string} Absolute path to the chat folder.
+ * @throws {Error} When the name is empty or would resolve outside the imports directory.
+ */
+export function resolveChatFolder(userDataPath, chatName) {
+    const importsRoot = path.resolve(getImportsBaseDir(userDataPath));
+    const folderName = String(chatName ?? "").trim();
+
+    if (
+        !folderName ||
+        /^\.+$/.test(folderName) ||
+        path.isAbsolute(folderName) ||
+        folderName.includes("/") ||
+        folderName.includes("\\")
+    ) {
+        throw new Error(`Invalid chat name: "${chatName}"`);
+    }
+
+    const folderPath = path.resolve(importsRoot, folderName);
+    if (!folderPath.startsWith(importsRoot + path.sep)) {
+        throw new Error(`Invalid chat name: "${chatName}"`);
+    }
+    return folderPath;
+}
+
+/**
  * Resolves a stored message media path to an absolute filesystem path.
  *
  * New rows store a path relative to the imports directory; legacy rows store an

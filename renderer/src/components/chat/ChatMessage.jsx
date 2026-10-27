@@ -3,9 +3,37 @@ import { mediaUrl } from "../../api/electronApi.js";
 import { AudioPlayer } from "./AudioPlayer.jsx";
 import { MediaLightbox } from "./MediaLightbox.jsx";
 
+/**
+ * Renders a non-previewable attachment, or a media file that failed to load.
+ *
+ * @component
+ * @param {Object} props
+ * @param {string} [props.fileName] - Original attachment file name.
+ * @param {string} props.label - Short description shown under the file name.
+ * @returns {JSX.Element}
+ */
+const AttachmentCard = ({ fileName, label }) => (
+  <div className="flex items-center gap-3 rounded-md bg-black/10 p-3">
+    <div className="text-2xl" aria-hidden="true">
+      {label === "Document" ? "📄" : "📎"}
+    </div>
+
+    <div className="min-w-0 flex-1">
+      <p className="text-sm font-medium break-words">
+        {fileName || "Attachment"}
+      </p>
+      <p className="text-xs text-[#aebac1]">{label}</p>
+    </div>
+  </div>
+);
+
 export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) => {
   // Which attachment is currently open in the fullscreen viewer (null = closed).
   const [openMedia, setOpenMedia] = useState(null);
+
+  // Track the URL that failed so a different source automatically clears the error.
+  const [failedSrc, setFailedSrc] = useState(null);
+  const mediaFailed = failedSrc === msg.message;
 
   const mediaFileName =
     msg.type === "file" ? msg.message.split(/[\\/]/).pop() : null;
@@ -55,7 +83,9 @@ export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) =
       )}
 
       <div className="min-w-0">
-        {isSticker ? (
+        {mediaFailed ? (
+          <AttachmentCard fileName={mediaFileName} label="Attachment unavailable" />
+        ) : isSticker ? (
           <button
             type="button"
             onClick={() => setOpenMedia("image")}
@@ -67,6 +97,7 @@ export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) =
               alt={mediaFileName || "Sticker"}
               className="block h-32 w-32 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)] sm:h-36 sm:w-36"
               loading="lazy"
+              onError={() => setFailedSrc(msg.message)}
             />
           </button>
         ) : msg.type === "file" ? (
@@ -83,6 +114,7 @@ export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) =
                   alt={mediaFileName || "Image attachment"}
                   className="block max-w-full max-h-80 rounded-md object-contain"
                   loading="lazy"
+                  onError={() => setFailedSrc(msg.message)}
                 />
               </button>
             ) : msg.category === "video" ? (
@@ -96,6 +128,7 @@ export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) =
                   src={mediaUrl(msg.message)}
                   preload="metadata"
                   className="block max-w-full max-h-80 rounded-md"
+                  onError={() => setFailedSrc(msg.message)}
                 >
                   Your browser does not support video playback.
                 </video>
@@ -115,24 +148,15 @@ export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) =
                 </span>
               </button>
             ) : msg.category === "audio" ? (
-              <AudioPlayer src={mediaUrl(msg.message)} />
+              <AudioPlayer
+                src={mediaUrl(msg.message)}
+                onError={() => setFailedSrc(msg.message)}
+              />
             ) : (
-              <div className="flex items-center gap-3 rounded-md bg-black/10 p-3">
-                <div className="text-2xl" aria-hidden="true">
-                  {msg.category === "document" ? "📄" : "📎"}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium break-words">
-                    {msg.message.split(/[\\/]/).pop() || "Attachment"}
-                  </p>
-                  <p className="text-xs text-[#aebac1]">
-                    {msg.category === "document"
-                      ? "Document"
-                      : "Attachment"}
-                  </p>
-                </div>
-              </div>
+              <AttachmentCard
+                fileName={mediaFileName}
+                label={msg.category === "document" ? "Document" : "Attachment"}
+              />
             )}
           </div>
         ) : (

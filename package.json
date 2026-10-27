@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-export-viewer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A cross-platform desktop application for importing, parsing, and viewing WhatsApp chat exports locally, built with Electron, React, Node.js, and SQLite.",
   "desktopName": "whatsapp-export-viewer.desktop",
   "homepage": "https://github.com/Muntazir3i/whatsapp-export-viewer#readme",
@@ -19,7 +19,7 @@
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test",
     "renderer:dev": "npm run dev --prefix renderer",
     "renderer:build": "npm run build --prefix renderer",
     "electron:dev": "ELECTRON_DEV=true electron .",

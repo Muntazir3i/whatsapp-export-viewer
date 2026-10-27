@@ -57,9 +57,10 @@ function formatTime(seconds) {
  * @component
  * @param {Object} props
  * @param {string} props.src - Audio URL built with `mediaUrl()`.
+ * @param {Function} [props.onError] - Called when the audio source fails to load.
  * @returns {JSX.Element}
  */
-export const AudioPlayer = ({ src }) => {
+export const AudioPlayer = ({ src, onError }) => {
   const audioRef = useRef(null);
   const trackRef = useRef(null);
   const draggingRef = useRef(false);
@@ -147,6 +148,7 @@ export const AudioPlayer = ({ src }) => {
         ref={audioRef}
         src={src}
         preload="metadata"
+        onError={onError}
         onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
         onDurationChange={(event) => setDuration(event.currentTarget.duration)}
         onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}

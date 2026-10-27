@@ -1,6 +1,5 @@
 import fs from "node:fs/promises";
-import path from "node:path";
-import { getImportsBaseDir } from "./appPaths.js";
+import { resolveChatFolder } from "./appPaths.js";
 
 /**
  * Deletes the extracted files folder for a specific chat.
@@ -12,7 +11,13 @@ import { getImportsBaseDir } from "./appPaths.js";
 export async function deleteChatFiles(chatName, userDataPath) { 
     if (!chatName) return;
 
-    const folderPath = path.join(getImportsBaseDir(userDataPath), chatName);       
+    let folderPath;
+    try {
+        folderPath = resolveChatFolder(userDataPath, chatName);
+    } catch (err) {
+        console.error(`Refusing to delete invalid chat folder "${chatName}":`, err.message);
+        return;
+    }
     
     try {
         await fs.rm(folderPath, {

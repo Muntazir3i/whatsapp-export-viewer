@@ -8,7 +8,7 @@ import extract from "extract-zip";
 import path from "path";
 import { existsSync, mkdirSync } from "fs";
 import { readdir } from "fs/promises";
-import { getImportsBaseDir } from "./appPaths.js";
+import { resolveChatFolder } from "./appPaths.js";
 import { extractChatFileInfo } from "../parser/importer.js";
 
 /**
@@ -32,8 +32,7 @@ export async function grabFileLocation(filePath, customName, userDataPath) {
 
     const [_, contact] = extractChatFileInfo(targetPath);
     const folderName = customName ? customName.trim() : contact;
-    const baseImportsDir = getImportsBaseDir(userDataPath);
-    const importDir = path.join(baseImportsDir, folderName);
+    const importDir = resolveChatFolder(userDataPath, folderName);
 
     const isZip = targetPath.toLowerCase().endsWith(".zip");
 
