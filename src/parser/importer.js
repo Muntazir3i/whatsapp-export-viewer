@@ -18,10 +18,9 @@ export function extractChatFileInfo(filePath) {
     const fileName = path.basename(filePath);
     const ext = path.extname(fileName);
     const baseNameWithoutExt = path.basename(fileName, ext);
-
-    const withMatch = baseNameWithoutExt.match(/with\s+(.+)$/i);
-    const contactName = withMatch ? withMatch[1].trim() : baseNameWithoutExt.trim();
-
+    const withMatch = baseNameWithoutExt.match(/^WhatsApp Chat with\s+(.+)$/i);
+    const dashMatch = baseNameWithoutExt.match(/^WhatsApp Chat\s*-\s*(.+)$/i);
+    const contactName = (withMatch?.[1] ?? dashMatch?.[1] ?? baseNameWithoutExt).trim();
     return [fileName, contactName];
 }
 
