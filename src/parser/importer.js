@@ -37,7 +37,25 @@ export function extractChatMetadata(filePath) {
     return { name: contactName, file_name: fileName };
 }
 
+/**
+ * Classifies the export flavor from one representative line of the chat file.
+ *
+ * Detection is content-based rather than filename-based: Android and iOS have both
+ * shipped "WhatsApp Chat with X" and "WhatsApp Chat - X" names, files get renamed,
+ * and the name says nothing about the timestamp syntax that actually matters here.
+ * The delimiter is the dependable signal:
+ *   Android -> "12/05/24, 10:16 - ..."     (timestamp ends at " - ")
+ *   iOS     -> "[25/04/22, 7:36:20 PM] ..." (timestamp is bracketed)
+ *
+ * @param {string} firstLine - First line of the export file.
+ * @returns {"android"|"ios"|null} Detected flavor, or null when neither format matched.
+ */
 function findFlavor(firstLine) {
+  // Android is checked first so its delimiter wins on lines that carry both
+  // signals. Note this keys off " - " anywhere in the line, so an iOS first line
+  // whose body contains " - " would be misread as Android; the first line of an
+  // export is normally a timestamped message or system banner, so this is safe
+  // enough in practice.
   let indexOfDash = firstLine.indexOf(" - ");
   let indexOfColon = firstLine.indexOf("]");
 
@@ -50,6 +68,17 @@ function findFlavor(firstLine) {
   }
 }
 
+/**
+ * Determines the export format by reading only the first line of the chat file.
+ *
+ * The stream is closed immediately after that first line: the file is opened
+ * again by `streamChatMessages`, so there is no reason to keep it buffered or hold
+ * the descriptor while the import continues.
+ *
+ * @param {string} filePath - Path to the resolved chat `.txt` file.
+ * @returns {Promise<"android"|"ios"|null>} Detected flavor; a falsy value means the
+ *   file was empty or the first line matched neither known format.
+ */
 export async function detectFlavor(filePath) {
   const fileStream = fs.createReadStream(filePath);
    const rl = readline.createInterface({
@@ -58,6 +87,7 @@ export async function detectFlavor(filePath) {
    });
  
    for await (const line of rl) {
+     // First line is all we need; release the fd before the streaming pass reopens it.
      rl.close();
      fileStream.destroy();
      return findFlavor(line)
@@ -69,6 +99,8 @@ export async function detectFlavor(filePath) {
  *
  * @param {string} userDataPath - OS userData directory supplied by the Electron main process.
  * @param {string} filePath - Path to the WhatsApp export `.txt` file.
+ * @param {"android"|"ios"} flavor - Export format resolved once by `detectFlavor`; passed on to
+ *   the message buffer so each line is matched against the correct timestamp format.
  * @param {Function} onMessageParsed - Async callback `(messageObj) => Promise<void>` when a message is ready.
  * @param {Function} [onProgress] - Optional callback `(bytesRead, totalBytes) => void`.
  */
@@ -81,6 +113,8 @@ export async function streamChatMessages(userDataPath, filePath, flavor, onMessa
     // nested folder rather than directly under the imports directory.
     const mediaDir = path.dirname(filePath);
 
+    // Flavor is fixed for the whole import, so it is captured once here and
+    // reused for every line by the buffer.
     const messageBuffer = new MessageStreamBuffer(flavor);
 
     for await (const line of lineReader) {

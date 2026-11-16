@@ -17,7 +17,7 @@ const BATCH_SIZE = 1000;
 /** Number of parsed messages to accumulate before performing a bulk transactional database insert. */
 let userData = null;
 
-//
+// Export format ("android" | "ios") detected for the current import.
 let flavor = null;
 
 /**
@@ -124,8 +124,10 @@ async function runImportPipeline({
         chatFilePath = await findChatFile(importDir);
     }
 
-  // check flavor
-
+    // Detect the export format once, before any DB writes. This has to run after
+    // ZIP extraction because the chat .txt only exists on disk at that point, and
+    // before createChat so a failed detection cannot leave behind an empty chat
+    // row that would then block a retry.
     flavor = await detectFlavor(chatFilePath);
 
     // Insert new chat metadata record into database
