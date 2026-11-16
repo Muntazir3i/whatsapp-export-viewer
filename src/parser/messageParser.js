@@ -8,13 +8,25 @@ import { toStoredMediaPath } from "../services/appPaths.js";
  */
 
 /**
- * Checks if a string line begins with a valid date prefix (DD/MM/YY format).
+ * Checks whether a line starts a new message, based on its timestamp prefix.
+ *
+ * The check is format-specific because Android and iOS delimit the timestamp
+ * differently:
+ *   Android: "12/05/24, 10:16 - Sender: Message"
+ *   iOS:     "[25/04/22, 7:36:20 PM] Sender: Message"
+ *
+ * Only the timestamp prefix is validated here; the sender and message body are
+ * extracted later by `parseMessageText`. Any line that fails this check is a
+ * continuation line and gets appended to the message being buffered.
  *
  * @param {string} lineText - The line text to evaluate.
- * @returns {boolean} True if the prefix represents a valid date, false otherwise.
+ * @param {"android"|"ios"} flavor - Export format resolved once per import by `detectFlavor`.
+ * @returns {boolean|null} True if the line begins with a valid date prefix, false for
+ *   continuation lines, or null when the flavor is unknown.
  */
 export function isMessageStartLine(lineText,flavor) {
   if (flavor === "android") {
+    // Android carries the timestamp before the first " - ".
     const [timestampStr] = lineText.split(" - ");
     const [dateString] = timestampStr.split(", ")
     let [day, month, year] = dateString.split("/");
@@ -22,9 +34,16 @@ export function isMessageStartLine(lineText,flavor) {
     let dateObj = new Date(fullYear, month - 1, day);
     return !Number.isNaN(dateObj.getDate());
   } else if (flavor === "ios") {
+    // iOS wraps the timestamp in square brackets. Only the text before the
+    // closing bracket is the timestamp; the message body may contain more.
     const [RawTimeStampStr] = lineText.split("]")
+    // Strip the opening bracket and any leading zero-width/bidi marks. iOS
+    // prefixes phone-number senders and attachment lines with U+200E, which
+    // would otherwise sit inside the day token and make the date invalid.
     const timeStampStr = RawTimeStampStr.replaceAll("[", "").replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "").trim();
     const [dateString, timeString] = timeStampStr.split(",")
+    // Continuation lines have no comma, so `timeString` is undefined; guard both
+    // parts instead of assuming a complete timestamp is present.
     const trimmedDate = (dateString ?? "").trim()
     const trimmedTime = (timeString ?? "").trim()
     let [day, month, year] = trimmedDate.split("/")
@@ -32,6 +51,9 @@ export function isMessageStartLine(lineText,flavor) {
     let dateObj = new Date(fullYear, month - 1, day);
     return !Number.isNaN(dateObj.getDate());
   } else {
+    // Unknown flavor: every line looks like a continuation, so the export would
+    // collapse into one buffered message. Detection runs before streaming to
+    // make sure this branch is never reached in practice.
     return null
   }
 }
@@ -39,8 +61,15 @@ export function isMessageStartLine(lineText,flavor) {
 /**
  * Parses a raw single-line or multi-line WhatsApp message string into a structured object.
  *
- * @param {string} rawMessageText - Raw message string (formatted like "DD/MM/YY, HH:MM - Sender: Message").
- * @returns {Object} Structured message object with `sender`, `message`, and `timestamp`.
+ * Each flavor strips its own timestamp delimiter, then splits the remainder on the
+ * first ": " to separate sender from body. A line without a "Sender: " prefix is a
+ * system notice and gets `sender: null`.
+ *
+ * @param {string} rawMessageText - Raw message text, either "DD/MM/YY, HH:MM - Sender: Message"
+ *   (Android) or "[DD/MM/YY, HH:MM:SS AM] Sender: Message" (iOS). Continuation lines of a
+ *   multi-line message are already joined with "\n" by `MessageStreamBuffer`.
+ * @param {"android"|"ios"} flavor - Export format resolved once per import by `detectFlavor`.
+ * @returns {{sender: string|null, message: string, timestamp: string}} Structured message object.
  */
 export function parseMessageText(rawMessageText,flavor) {
   if (flavor === "android") {
@@ -68,12 +97,18 @@ export function parseMessageText(rawMessageText,flavor) {
         }
     }
   } else if (flavor === "ios") {
+    // Normalize the prefix: iOS may start the line with a bidi mark/BOM, and the
+    // timestamp is the part between "[" and "]".
     const line = rawMessageText.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
     const bracketIndex = line.indexOf("]");
+    // Starting at 1 skips the "["; ending at bracketIndex excludes the "]".
     const timestampStr = line.slice(1, bracketIndex);
+    // trimStart() instead of a fixed offset, so a missing or doubled space after
+    // "]" cannot shift the sender into the timestamp.
     const rest = line.slice(bracketIndex + 1).trimStart();
 
     if (rest.includes(": ")) {
+        // Split on the FIRST ": " only, so colons inside the body stay intact.
         const [sender, ...msgParts] = rest.split(": ");
         const messageContent = msgParts.join(": ");
         const [dateStr, timeStr] = timestampStr.split(", ");
@@ -147,8 +182,16 @@ export function classifyMessage(msgObj, mediaDir, userDataPath) {
 
 /**
  * Encapsulates multi-line message buffering and line parsing state.
+ *
+ * An export stores each message as a start line followed by zero or more
+ * continuation lines, so the current message is held in `buffer` until the next
+ * start line (or end of stream) marks it complete.
  */
 export class MessageStreamBuffer {
+    /**
+     * @param {"android"|"ios"} flavor - Export format; selects the line matcher and
+     *   timestamp parser used for every line pushed through this buffer.
+     */
     constructor(flavor) {
         this.buffer = "";
         this.flavor = flavor;
