@@ -13,7 +13,7 @@ import { toStoredMediaPath } from "../services/appPaths.js";
  * @param {string} lineText - The line text to evaluate.
  * @returns {boolean} True if the prefix represents a valid date, false otherwise.
  */
-export function isMessageStartLine(lineText) {
+export function isMessageStartLine(lineText,flavor) {
     const [timestampStr] = lineText.split(" - ");
     const [dateString] = timestampStr.split(", ")
     let [day, month, year] = dateString.split("/");
@@ -28,7 +28,7 @@ export function isMessageStartLine(lineText) {
  * @param {string} rawMessageText - Raw message string (formatted like "DD/MM/YY, HH:MM - Sender: Message").
  * @returns {Object} Structured message object with `sender`, `message`, and `timestamp`.
  */
-export function parseMessageText(rawMessageText) {
+export function parseMessageText(rawMessageText,flavor) {
     let indexOfDash = rawMessageText.indexOf(" - ");
     const timestampStr = rawMessageText.slice(0, indexOfDash);
     const rest = rawMessageText.slice(indexOfDash + 3)
@@ -109,8 +109,9 @@ export function classifyMessage(msgObj, mediaDir, userDataPath) {
  * Encapsulates multi-line message buffering and line parsing state.
  */
 export class MessageStreamBuffer {
-    constructor() {
+    constructor(flavor) {
         this.buffer = "";
+        this.flavor = flavor;
     }
 
     /**
@@ -122,10 +123,10 @@ export class MessageStreamBuffer {
      * @returns {Object|null} Parsed message object if a message boundary was completed, or null if accumulating.
      */
     processLine(line, mediaDir, userDataPath) {
-        if (isMessageStartLine(line)) {
+        if (isMessageStartLine(line, this.flavor)) {
             let completedMsg = null;
             if (this.buffer !== "") {
-                completedMsg = classifyMessage(parseMessageText(this.buffer), mediaDir, userDataPath);
+                completedMsg = classifyMessage(parseMessageText(this.buffer, this.flavor), mediaDir, userDataPath);
             }
             this.buffer = line;
             return completedMsg;
@@ -144,7 +145,7 @@ export class MessageStreamBuffer {
      */
     flush(mediaDir, userDataPath) {
         if (this.buffer !== "") {
-            const finalMsg = classifyMessage(parseMessageText(this.buffer), mediaDir, userDataPath);
+            const finalMsg = classifyMessage(parseMessageText(this.buffer, this.flavor), mediaDir, userDataPath);
             this.buffer = "";
             return finalMsg;
         }

@@ -6,6 +6,8 @@
 import { createLineReader, getFileByteSize } from "./reader.js";
 import { MessageStreamBuffer } from "./messageParser.js";
 
+import fs from "node:fs";
+import readline from "node:readline";
 import path from "path";
 
 /**
@@ -35,6 +37,20 @@ export function extractChatMetadata(filePath) {
     return { name: contactName, file_name: fileName };
 }
 
+export async function detectFlavor(filePath) {
+  const fileStream = fs.createReadStream(filePath);
+   const rl = readline.createInterface({
+     input: fileStream,
+     crlfDelay: Infinity
+   });
+ 
+   for await (const line of rl) {
+     rl.close();
+     fileStream.destroy();
+     return findFlavor(line)
+   }
+}
+
 /**
  * Streams messages line-by-line from a text file and invokes a callback for each parsed message.
  *
@@ -43,7 +59,7 @@ export function extractChatMetadata(filePath) {
  * @param {Function} onMessageParsed - Async callback `(messageObj) => Promise<void>` when a message is ready.
  * @param {Function} [onProgress] - Optional callback `(bytesRead, totalBytes) => void`.
  */
-export async function streamChatMessages(userDataPath, filePath, onMessageParsed, onProgress) {
+export async function streamChatMessages(userDataPath, filePath, flavor, onMessageParsed, onProgress) {
     const lineReader = createLineReader(filePath);
     const totalBytes = getFileByteSize(filePath);
     let bytesRead = 0;
@@ -52,7 +68,7 @@ export async function streamChatMessages(userDataPath, filePath, onMessageParsed
     // nested folder rather than directly under the imports directory.
     const mediaDir = path.dirname(filePath);
 
-    const messageBuffer = new MessageStreamBuffer();
+    const messageBuffer = new MessageStreamBuffer(flavor);
 
     for await (const line of lineReader) {
         // readline strips the newline, so +1 accounts for it in the byte total

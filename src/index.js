@@ -9,12 +9,16 @@ import { ChatRepository } from "./db/schema.js";
 import { extractChatMetadata, streamChatMessages } from "./parser/importer.js";
 import { chatRepository as ChatQueryRepository } from "./db/chatRepository.js";
 import { grabFileLocation, extractZip, findChatFile } from "./services/importChat.js";
+import { detectFlavor } from "./parser/importer.js";
 
 /** Number of parsed messages to accumulate before performing a bulk transactional database insert. */
 const BATCH_SIZE = 1000;
 
 /** Number of parsed messages to accumulate before performing a bulk transactional database insert. */
 let userData = null;
+
+//
+let flavor = null;
 
 /**
  * Main ETL pipeline orchestrator for importing WhatsApp chat exports into SQLite.
@@ -37,7 +41,8 @@ export async function main(fileName, db, customName, userDataPath, onProgress) {
     const queryRepository = new ChatQueryRepository(db);
 
     // 3. Extract initial chat session metadata (e.g., chat name derived from filename)
-    let chatFilePath = filePath;
+  let chatFilePath = filePath;
+
     const chatMetadata = extractChatMetadata(chatFilePath);
 
     // 4. Apply custom name override if specified, or check for existing chat name collision
@@ -60,7 +65,7 @@ export async function main(fileName, db, customName, userDataPath, onProgress) {
         chatFilePath,
         chatMetadata,
         repository,
-        reportProgress
+      reportProgress,
     });
 
     return false;
@@ -107,7 +112,7 @@ async function runImportPipeline({
     chatFilePath,
     chatMetadata,
     repository,
-    reportProgress
+  reportProgress,
 }) {
     // Extract ZIP archive if applicable
     if (isZip) {
@@ -118,6 +123,10 @@ async function runImportPipeline({
         // Locate the target .txt chat file inside the uncompressed folder
         chatFilePath = await findChatFile(importDir);
     }
+
+  // check flavor
+
+    flavor = await detectFlavor(chatFilePath);
 
     // Insert new chat metadata record into database
     const chatRecord = repository.createChat(chatMetadata);
@@ -130,7 +139,8 @@ async function runImportPipeline({
     // Stream and parse messages line-by-line to minimize memory footprint
     await streamChatMessages(
         userData,
-        chatFilePath,
+      chatFilePath,
+        flavor,
         async (parsedMessage) => {
             messageBuffer.push({
                 chat_id: chatId,
