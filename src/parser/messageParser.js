@@ -14,12 +14,26 @@ import { toStoredMediaPath } from "../services/appPaths.js";
  * @returns {boolean} True if the prefix represents a valid date, false otherwise.
  */
 export function isMessageStartLine(lineText,flavor) {
+  if (flavor === "android") {
     const [timestampStr] = lineText.split(" - ");
     const [dateString] = timestampStr.split(", ")
     let [day, month, year] = dateString.split("/");
     let fullYear = "20" + year;
     let dateObj = new Date(fullYear, month - 1, day);
     return !Number.isNaN(dateObj.getDate());
+  } else if (flavor === "ios") {
+    const [RawTimeStampStr] = lineText.split("]")
+    const timeStampStr = RawTimeStampStr.replaceAll("[", "").replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "").trim();
+    const [dateString, timeString] = timeStampStr.split(",")
+    const trimmedDate = (dateString ?? "").trim()
+    const trimmedTime = (timeString ?? "").trim()
+    let [day, month, year] = trimmedDate.split("/")
+    let fullYear = "20" + year;
+    let dateObj = new Date(fullYear, month - 1, day);
+    return !Number.isNaN(dateObj.getDate());
+  } else {
+    return null
+  }
 }
 
 /**
@@ -29,6 +43,7 @@ export function isMessageStartLine(lineText,flavor) {
  * @returns {Object} Structured message object with `sender`, `message`, and `timestamp`.
  */
 export function parseMessageText(rawMessageText,flavor) {
+  if (flavor === "android") {
     let indexOfDash = rawMessageText.indexOf(" - ");
     const timestampStr = rawMessageText.slice(0, indexOfDash);
     const rest = rawMessageText.slice(indexOfDash + 3)
@@ -52,6 +67,31 @@ export function parseMessageText(rawMessageText,flavor) {
             timestamp: `${dateStr} ${timeStr}`
         }
     }
+  } else if (flavor === "ios") {
+    const line = rawMessageText.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
+    const bracketIndex = line.indexOf("]");
+    const timestampStr = line.slice(1, bracketIndex);
+    const rest = line.slice(bracketIndex + 1).trimStart();
+
+    if (rest.includes(": ")) {
+        const [sender, ...msgParts] = rest.split(": ");
+        const messageContent = msgParts.join(": ");
+        const [dateStr, timeStr] = timestampStr.split(", ");
+
+        return {
+            sender: sender,
+            message: messageContent,
+            timestamp: `${dateStr} ${timeStr}`
+        };
+    } else {
+        const [dateStr, timeStr] = timestampStr.split(", ");
+        return {
+            sender: null,
+            message: rest,
+            timestamp: `${dateStr} ${timeStr}`
+        }
+    }
+  }
 }
 
 /**

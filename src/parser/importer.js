@@ -37,6 +37,19 @@ export function extractChatMetadata(filePath) {
     return { name: contactName, file_name: fileName };
 }
 
+function findFlavor(firstLine) {
+  let indexOfDash = firstLine.indexOf(" - ");
+  let indexOfColon = firstLine.indexOf("]");
+
+  if (indexOfDash > -1) {
+    return "android"
+  } else if (indexOfColon > -1) {
+    return "ios"
+  } else {
+    return null
+  }
+}
+
 export async function detectFlavor(filePath) {
   const fileStream = fs.createReadStream(filePath);
    const rl = readline.createInterface({
