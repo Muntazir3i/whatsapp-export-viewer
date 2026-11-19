@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { mediaUrl } from "../../api/electronApi.js";
 import { AudioPlayer } from "./AudioPlayer.jsx";
+import { LinkedText } from "./LinkedText.jsx";
 import { MediaLightbox } from "./MediaLightbox.jsx";
 
 /**
@@ -160,8 +161,9 @@ export const ChatMessage = ({ msg, isOutgoing, showDateDivider, currentDate }) =
             )}
           </div>
         ) : (
+          // Plain text and "link" messages; URLs render as external links.
           <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed">
-            {msg.message}
+            <LinkedText text={msg.message} />
           </p>
         )}
 

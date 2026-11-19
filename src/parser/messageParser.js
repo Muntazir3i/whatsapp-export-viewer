@@ -59,20 +59,20 @@ export function isMessageStartLine(lineText,flavor) {
 }
 
 /**
- * Parses a raw single-line or multi-line WhatsApp message string into a structured object.
+ * Parses a raw message string into `{ sender, message, timestamp }`.
  *
- * Each flavor strips its own timestamp delimiter, then splits the remainder on the
- * first ": " to separate sender from body. A line without a "Sender: " prefix is a
- * system notice and gets `sender: null`.
+ *   Android: "12/05/24, 10:16 - Sender: Message"
+ *   iOS:     "[25/04/22, 7:36:20 PM] Sender: Message"
  *
- * @param {string} rawMessageText - Raw message text, either "DD/MM/YY, HH:MM - Sender: Message"
- *   (Android) or "[DD/MM/YY, HH:MM:SS AM] Sender: Message" (iOS). Continuation lines of a
- *   multi-line message are already joined with "\n" by `MessageStreamBuffer`.
- * @param {"android"|"ios"} flavor - Export format resolved once per import by `detectFlavor`.
- * @returns {{sender: string|null, message: string, timestamp: string}} Structured message object.
+ * A line with no "Sender: " prefix is a system notice, so `sender` is null.
+ *
+ * @param {string} rawMessageText - Start line plus any "\n"-joined continuation lines.
+ * @param {"android"|"ios"} flavor - Export format from `detectFlavor`.
+ * @returns {{sender: string|null, message: string, timestamp: string}}
  */
-export function parseMessageText(rawMessageText,flavor) {
+export function parseMessageText(rawMessageText, flavor) {
   if (flavor === "android") {
+    // Timestamp ends at the first " - ".
     let indexOfDash = rawMessageText.indexOf(" - ");
     const timestampStr = rawMessageText.slice(0, indexOfDash);
     const rest = rawMessageText.slice(indexOfDash + 3)
@@ -97,21 +97,23 @@ export function parseMessageText(rawMessageText,flavor) {
         }
     }
   } else if (flavor === "ios") {
-    // Normalize the prefix: iOS may start the line with a bidi mark/BOM, and the
-    // timestamp is the part between "[" and "]".
+    // Timestamp sits between "[" and "]"; strip leading bidi/BOM marks first.
     const line = rawMessageText.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
     const bracketIndex = line.indexOf("]");
-    // Starting at 1 skips the "["; ending at bracketIndex excludes the "]".
+    // slice(1, ...) drops "[", the end index excludes "]".
     const timestampStr = line.slice(1, bracketIndex);
-    // trimStart() instead of a fixed offset, so a missing or doubled space after
-    // "]" cannot shift the sender into the timestamp.
+    // trimStart handles a missing or doubled space after "]".
     const rest = line.slice(bracketIndex + 1).trimStart();
 
     if (rest.includes(": ")) {
-        // Split on the FIRST ": " only, so colons inside the body stay intact.
+        // Split on the first ": " so colons in the body stay intact.
         const [sender, ...msgParts] = rest.split(": ");
-        const messageContent = msgParts.join(": ");
-        const [dateStr, timeStr] = timestampStr.split(", ");
+      // Strip the invisible marks iOS adds before numbers and attachments.
+      const rawMessageContent = msgParts.join(": ");
+      const messageContent = rawMessageContent.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
+      const [rawDateStr, rawTimeStr] = timestampStr.split(", ");
+      const dateStr = rawDateStr.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
+      const timeStr = rawTimeStr.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
 
         return {
             sender: sender,
@@ -129,42 +131,48 @@ export function parseMessageText(rawMessageText,flavor) {
   }
 }
 
+/** Matches URLs WhatsApp auto-links: http(s):// or a bare www. host. */
+const LINK_PATTERN = /(?:https?:\/\/|www\.)\S+/i;
+
 /**
- * Classifies a parsed WhatsApp message and assigns a type.
+ * Adds a `type` (and media metadata) to a parsed message.
  *
- * Handles system notices, media placeholders, deleted notices, and document
- * attachments (`<name> (file attached)`). Attachments also get a normalized
- * `extension` and a coarse `category` (image, video, audio, document, archive);
- * both are `null` for every other message type.
+ * Types: "system" (no sender), "media", "deleted", "file" (attachment), "link", "text".
+ * Only "file" gets `extension`/`category`; the others get null. For a file, the
+ * stored media path replaces `message`.
  *
- * For attachments the `message` field is replaced with the media path, stored
- * relative to the imports directory whenever possible.
- *
- * @param {Object} msgObj - Parsed message object containing `sender`, `message`, and `timestamp`.
- * @param {string} mediaDir - Directory containing the chat file and its media attachments.
- * @param {string} userDataPath - OS userData directory supplied by the Electron main process.
- * @returns {Object} Message object with `type`, `extension`, and `category`.
+ * @param {{sender: string|null, message: string, timestamp: string}} msgObj - Parsed message.
+ * @param {string} mediaDir - Directory holding the chat file and its media files.
+ * @param {string} userDataPath - OS userData directory from the Electron main process.
+ * @param {"android"|"ios"} flavor - Export format, used for iOS-only markers.
+ * @returns {Object} The message with `type`, `extension`, and `category` added.
  */
-export function classifyMessage(msgObj, mediaDir, userDataPath) {
+export function classifyMessage(msgObj, mediaDir, userDataPath, flavor) {
     if (msgObj.sender === null) {
+        // No sender means a system notice in both formats.
         return { ...msgObj, type: "system", extension: null, category: null }
+    }
 
-    } else if (msgObj.message === "<Media omitted>") {
+    if (msgObj.message === "<Media omitted>") {
+        // Placeholder for media not included in the export.
         return { ...msgObj, type: "media", extension: null, category: null }
+    }
 
-    } else if (msgObj.message === "You deleted this message" || msgObj.message === "This message was deleted") {
+    if (msgObj.message === "You deleted this message" || msgObj.message === "This message was deleted") {
+        // Both phrasings appear across formats and locales.
         return { ...msgObj, type: "deleted", extension: null, category: null }
+    }
 
-    } else if (msgObj.message.endsWith("(file attached)")) {
+    if (msgObj.message.endsWith("(file attached)")) {
+        // Attachment line: "<filename> (file attached)".
         const fileName = msgObj.message.slice(0, msgObj.message.indexOf("(file attached)")).trim();
 
-        // Only a dotted suffix after at least one character counts as an extension.
+        // A dotted suffix after at least one character is the extension.
         const dotIndex = fileName.lastIndexOf(".");
         const extension = dotIndex > 0 ? fileName.slice(dotIndex).toLowerCase() : null;
         const category = extension ? extensionToCategory[extension] ?? null : null;
 
-        // Media files are extracted next to the chat .txt file, which is not
-        // necessarily the imports root (exports may unpack into a nested folder).
+        // Media sits next to the chat .txt, which may be a nested folder.
         const absoluteMediaPath = path.join(mediaDir, fileName);
 
         return {
@@ -174,9 +182,41 @@ export function classifyMessage(msgObj, mediaDir, userDataPath) {
             category,
             type: "file"
         }
-    } else {
-        return { ...msgObj, type: "text", extension: null, category: null }
     }
+
+    // iOS markers run before the link check: an edited message that contains a URL
+    // must still have the marker stripped, and "<attached: ...>" is a file.
+    if (flavor === "ios") {
+        // iOS hides a bidi mark (U+200E) right before the edited marker. trim() keeps it
+        // because it is not whitespace, so strip it first.
+        if (msgObj.message.endsWith("<This message was edited>")) {
+            const msg = msgObj.message.replace("<This message was edited>", "");
+            return { ...msgObj, message: msg, type: "text", extension: null, category: null }
+        } else if (msgObj.message.startsWith("<attached") && msgObj.message.endsWith(">")) {
+            let [withAttached, fileName] = msgObj.message.split(": ")
+            let result = fileName.replaceAll(">", "")
+
+            const dotIndex = result.lastIndexOf(".");
+            const extension = dotIndex > 0 ? result.slice(dotIndex).toLowerCase() : null;
+            const category = extension ? extensionToCategory[extension] ?? null : null;
+            const absoluteMediaPath = path.join(mediaDir, result);
+            return {
+                ...msgObj,
+                message: toStoredMediaPath(userDataPath, absoluteMediaPath),
+                extension,
+                category,
+                type: "file"
+            }
+        }
+    }
+
+    if (LINK_PATTERN.test(msgObj.message)) {
+        // Renderer turns URLs inside the message into external links.
+        return { ...msgObj, type: "link", extension: null, category: null }
+    }
+
+    // Plain text message.
+    return { ...msgObj, type: "text", extension: null, category: null }
 }
 
 
@@ -209,7 +249,7 @@ export class MessageStreamBuffer {
         if (isMessageStartLine(line, this.flavor)) {
             let completedMsg = null;
             if (this.buffer !== "") {
-                completedMsg = classifyMessage(parseMessageText(this.buffer, this.flavor), mediaDir, userDataPath);
+                completedMsg = classifyMessage(parseMessageText(this.buffer, this.flavor), mediaDir, userDataPath, this.flavor);
             }
             this.buffer = line;
             return completedMsg;
@@ -228,7 +268,7 @@ export class MessageStreamBuffer {
      */
     flush(mediaDir, userDataPath) {
         if (this.buffer !== "") {
-            const finalMsg = classifyMessage(parseMessageText(this.buffer, this.flavor), mediaDir, userDataPath);
+            const finalMsg = classifyMessage(parseMessageText(this.buffer, this.flavor), mediaDir, userDataPath, this.flavor);
             this.buffer = "";
             return finalMsg;
         }
