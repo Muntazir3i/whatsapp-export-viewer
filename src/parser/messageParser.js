@@ -207,6 +207,10 @@ export function classifyMessage(msgObj, mediaDir, userDataPath, flavor) {
                 category,
                 type: "file"
             }
+        } else if (msgObj.message === "You blocked this person" || msgObj.message === "You unblocked this person") {
+           return { ...msgObj, type: "system", extension: null, category: null }
+        }else if (msgObj.message.includes("Messages and calls are end-to-end encrypted. Only people in this chat can read, listen to, or share them.")) {
+          return { ...msgObj, sender:null, type: "system", extension: null, category: null }
         }
     }
 
