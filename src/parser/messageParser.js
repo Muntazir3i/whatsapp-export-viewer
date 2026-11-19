@@ -131,10 +131,13 @@ export function parseMessageText(rawMessageText, flavor) {
   }
 }
 
+/** Matches URLs WhatsApp auto-links: http(s):// or a bare www. host. */
+const LINK_PATTERN = /(?:https?:\/\/|www\.)\S+/i;
+
 /**
  * Adds a `type` (and media metadata) to a parsed message.
  *
- * Types: "system" (no sender), "media", "deleted", "file" (attachment), "text".
+ * Types: "system" (no sender), "media", "deleted", "file" (attachment), "link", "text".
  * Only "file" gets `extension`/`category`; the others get null. For a file, the
  * stored media path replaces `message`.
  *
@@ -148,16 +151,19 @@ export function classifyMessage(msgObj, mediaDir, userDataPath, flavor) {
     if (msgObj.sender === null) {
         // No sender means a system notice in both formats.
         return { ...msgObj, type: "system", extension: null, category: null }
+    }
 
-    } else if (msgObj.message === "<Media omitted>") {
+    if (msgObj.message === "<Media omitted>") {
         // Placeholder for media not included in the export.
         return { ...msgObj, type: "media", extension: null, category: null }
+    }
 
-    } else if (msgObj.message === "You deleted this message" || msgObj.message === "This message was deleted") {
+    if (msgObj.message === "You deleted this message" || msgObj.message === "This message was deleted") {
         // Both phrasings appear across formats and locales.
         return { ...msgObj, type: "deleted", extension: null, category: null }
+    }
 
-    } else if (msgObj.message.endsWith("(file attached)")) {
+    if (msgObj.message.endsWith("(file attached)")) {
         // Attachment line: "<filename> (file attached)".
         const fileName = msgObj.message.slice(0, msgObj.message.indexOf("(file attached)")).trim();
 
@@ -176,34 +182,41 @@ export function classifyMessage(msgObj, mediaDir, userDataPath, flavor) {
             category,
             type: "file"
         }
-    } else {
-        if (flavor === "ios") {
-            // iOS hides a bidi mark (U+200E) right before the edited marker. trim() keeps it
-            // because it is not whitespace, so strip it first.
-            if (msgObj.message.endsWith("<This message was edited>")) {
-                const msg = msgObj.message.replace("<This message was edited>", "");
-                return { ...msgObj, message: msg, type: "text", extension: null, category: null }
-            } else if (msgObj.message.startsWith("<attached") && msgObj.message.endsWith(">")) {
-                let [withAttached, fileName] = msgObj.message.split(": ")
-                let result = fileName.replaceAll(">", "")
+    }
 
-                const dotIndex = result.lastIndexOf(".");
-                const extension = dotIndex > 0 ? result.slice(dotIndex).toLowerCase() : null;
-                const category = extension ? extensionToCategory[extension] ?? null : null;
-                const absoluteMediaPath = path.join(mediaDir, result);
-                return {
-                    ...msgObj,
-                    message: toStoredMediaPath(userDataPath, absoluteMediaPath),
-                    extension,
-                    category,
-                    type: "file"
-                }
+    // iOS markers run before the link check: an edited message that contains a URL
+    // must still have the marker stripped, and "<attached: ...>" is a file.
+    if (flavor === "ios") {
+        // iOS hides a bidi mark (U+200E) right before the edited marker. trim() keeps it
+        // because it is not whitespace, so strip it first.
+        if (msgObj.message.endsWith("<This message was edited>")) {
+            const msg = msgObj.message.replace("<This message was edited>", "");
+            return { ...msgObj, message: msg, type: "text", extension: null, category: null }
+        } else if (msgObj.message.startsWith("<attached") && msgObj.message.endsWith(">")) {
+            let [withAttached, fileName] = msgObj.message.split(": ")
+            let result = fileName.replaceAll(">", "")
+
+            const dotIndex = result.lastIndexOf(".");
+            const extension = dotIndex > 0 ? result.slice(dotIndex).toLowerCase() : null;
+            const category = extension ? extensionToCategory[extension] ?? null : null;
+            const absoluteMediaPath = path.join(mediaDir, result);
+            return {
+                ...msgObj,
+                message: toStoredMediaPath(userDataPath, absoluteMediaPath),
+                extension,
+                category,
+                type: "file"
             }
         }
-
-        // Plain text message.
-        return { ...msgObj, type: "text", extension: null, category: null }
     }
+
+    if (LINK_PATTERN.test(msgObj.message)) {
+        // Renderer turns URLs inside the message into external links.
+        return { ...msgObj, type: "link", extension: null, category: null }
+    }
+
+    // Plain text message.
+    return { ...msgObj, type: "text", extension: null, category: null }
 }
 
 

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, protocol, net } from "electron";
+import { app, BrowserWindow, protocol, net, shell } from "electron";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { chatRepository } from "../src/db/chatRepository.js";
@@ -71,6 +71,14 @@ function createWindow() {
         },
         // Hide the default menu bar for a cleaner app feel
         autoHideMenuBar: true,
+    });
+
+    // Links inside message bubbles open in the system browser, never in an Electron window.
+    win.webContents.setWindowOpenHandler(({ url }) => {
+        if (url.startsWith("https://") || url.startsWith("http://")) {
+            shell.openExternal(url);
+        }
+        return { action: "deny" };
     });
 
     if (isDev) {
