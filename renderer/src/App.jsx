@@ -20,7 +20,7 @@ function App() {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#0b141a] text-[#e9edef] antialiased">
       {/* Sidebar listing available chats and search filter */}
-      <Sidebar setSelectedChat={setSelectedChat} />
+      <Sidebar selectedChat={selectedChat} setSelectedChat={setSelectedChat} />
 
       {/* Main chat window displaying selected chat messages */}
       <ChatWindow selectedChat={selectedChat} />

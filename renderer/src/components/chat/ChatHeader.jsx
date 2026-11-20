@@ -6,36 +6,43 @@
  * @param {Object} props
  * @param {Object} props.selectedChat - Details of current selected chat.
  * @param {string|null} [props.currentUser] - Name of currently selected active participant.
+ * @param {Function} [props.onOpenInfo] - Opens the chat info panel when the header profile is clicked.
  * @returns {JSX.Element}
  */
-export const ChatHeader = ({ selectedChat, currentUser }) => {
+export const ChatHeader = ({ selectedChat, currentUser, onOpenInfo }) => {
   const chatName = selectedChat?.name || 'Chat';
   const initialLetter = chatName.charAt(0).toUpperCase();
 
   return (
-    <div className="h-14 bg-[#202c33] px-4 flex items-center justify-between border-b border-[#222d34] flex-shrink-0 z-10">
-      {/* Left section: Avatar & Chat Info */}
-      <div className="flex items-center gap-3 min-w-0">
+    <div className="h-[59px] bg-[#202c33] px-4 flex items-center justify-between flex-shrink-0 z-10">
+      {/* Left section: Avatar & Chat Info (opens chat info) */}
+      <button
+        type="button"
+        onClick={onOpenInfo}
+        title="Chat info"
+        aria-label="Open chat info"
+        className="flex items-center gap-3 min-w-0 -ml-1 rounded-md px-1 py-1 text-left transition-colors hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb]"
+      >
         <div className="w-10 h-10 rounded-full bg-[#6b7c85] flex items-center justify-center text-white font-medium text-base flex-shrink-0">
           {initialLetter}
         </div>
 
         <div className="min-w-0">
-          <h2 className="text-[#e9edef] font-medium text-base leading-tight truncate">
+          <h2 className="text-[#e9edef] text-[16px] leading-tight truncate">
             {chatName}
           </h2>
 
-          <span className="text-[#8696a0] text-xs block truncate">
-            {currentUser ? `You are ${currentUser}` : 'SQLite Export Data'}
+          <span className="text-[#8696a0] text-[13px] block truncate">
+            {currentUser ? `You are ${currentUser}` : 'Read-only export'}
           </span>
         </div>
-      </div>
+      </button>
 
       {/* Right section: Action Buttons */}
-      <div className="flex items-center gap-4 text-[#aebac1] flex-shrink-0">
+      <div className="flex items-center gap-1 text-[#aebac1] flex-shrink-0">
         <button
           type="button"
-          className="hover:text-[#e9edef] p-1 transition-colors focus:outline-none"
+          className="p-2 rounded-full hover:bg-white/5 hover:text-[#e9edef] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb]"
           title="Search in chat"
           aria-label="Search in chat"
         >
@@ -57,7 +64,7 @@ export const ChatHeader = ({ selectedChat, currentUser }) => {
 
         <button
           type="button"
-          className="hover:text-[#e9edef] p-1 transition-colors focus:outline-none"
+          className="p-2 rounded-full hover:bg-white/5 hover:text-[#e9edef] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb]"
           title="Menu options"
           aria-label="Menu options"
         >

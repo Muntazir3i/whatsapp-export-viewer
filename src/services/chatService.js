@@ -51,4 +51,21 @@ export class chatServices {
     loadMoreMessages(chat_id, cursorId) {
         return this.loadMessages(chat_id, cursorId);
     }
+
+    /**
+     * Aggregate counters for the chat info panel.
+     * @param {number|string} chat_id
+     */
+    getChatStats(chat_id) {
+        return this.chatRepository.getChatStats(chat_id);
+    }
+
+    /**
+     * All messages of one category (`images`, `audio`, `documents`, `links`).
+     * @param {number|string} chat_id
+     * @param {string} categoryKey
+     */
+    getCategoryMessages(chat_id, categoryKey) {
+        return this.chatRepository.getCategoryMessages(chat_id, categoryKey);
+    }
 }

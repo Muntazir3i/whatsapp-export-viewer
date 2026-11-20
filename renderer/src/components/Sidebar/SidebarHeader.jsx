@@ -53,11 +53,11 @@ export const SidebarHeader = ({ onImportSuccess }) => {
   return (
     <>
       {/* Sidebar Header */}
-      <header className="h-14 bg-[#202c33] px-4 flex items-center justify-between border-b border-[#222d34] flex-shrink-0">
+      <header className="h-[59px] bg-[#202c33] px-4 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center justify-between w-full">
-          {/* App Title */}
-          <h1 className="text-[#e9edef] font-bold text-base tracking-wide truncate mr-2">
-            WhatsApp Export Viewer
+          {/* Sidebar heading, matching the WhatsApp chat list title */}
+          <h1 className="text-[#e9edef] font-semibold text-[17px] tracking-tight truncate mr-2">
+            Chats
           </h1>
 
           {/* Import Button */}
@@ -67,12 +67,12 @@ export const SidebarHeader = ({ onImportSuccess }) => {
             disabled={isImporting}
             title="Import WhatsApp Export (.zip or .txt)"
             aria-label="Import WhatsApp Export Chat File"
-            className="bg-[#00a884] hover:bg-[#008f70] active:scale-95 text-white text-xs font-semibold px-3 py-1.5 rounded-md flex items-center gap-1.5 shadow transition-all duration-150 disabled:opacity-50 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#00a884]"
+            className="bg-[#00a884] hover:bg-[#06cf9c] active:scale-95 text-[#111b21] text-[13px] font-semibold px-3.5 h-8 rounded-full flex items-center gap-1.5 transition-colors duration-150 disabled:opacity-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#06cf9c]"
           >
             {isImporting ? (
               <>
                 <svg
-                  className="animate-spin w-3.5 h-3.5 text-white"
+                  className="animate-spin w-3.5 h-3.5 text-[#111b21]"
                   fill="none"
                   viewBox="0 0 24 24"
                   aria-hidden="true"
@@ -98,7 +98,7 @@ export const SidebarHeader = ({ onImportSuccess }) => {
             ) : (
               <>
                 <svg
-                  className="w-3.5 h-3.5 text-white"
+                  className="w-3.5 h-3.5 text-[#111b21]"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

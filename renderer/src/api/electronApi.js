@@ -108,6 +108,46 @@ export function loadMoreMessages(chatId, cursorId) {
 }
 
 /**
+ * Opens a stored attachment with the OS default application via IPC.
+ * @param {string} storedPath - Path from `messages.message`.
+ * @returns {Promise<{ success: boolean, error?: string }>}
+ */
+export function openAttachment(storedPath) {
+  if (!window.api?.openAttachment) {
+    console.warn('[electronApi] window.api.openAttachment is unavailable.');
+    return Promise.resolve({ success: false, error: 'IPC unavailable' });
+  }
+  return window.api.openAttachment(storedPath);
+}
+
+/**
+ * Fetches aggregate counters for the chat info panel.
+ * @param {string|number} chatId - Target chat ID.
+ * @returns {Promise<{ total: number, images: number, audio: number, documents: number, links: number }>}
+ */
+export function getChatStats(chatId) {
+  if (!window.api?.getChatStats) {
+    console.warn('[electronApi] window.api.getChatStats is unavailable.');
+    return Promise.resolve({ total: 0, images: 0, audio: 0, documents: 0, links: 0 });
+  }
+  return window.api.getChatStats(chatId);
+}
+
+/**
+ * Fetches all messages of one category (images, audio, documents, links).
+ * @param {string|number} chatId - Target chat ID.
+ * @param {string} categoryKey - Category to list.
+ * @returns {Promise<Array<Object>>}
+ */
+export function getCategoryMessages(chatId, categoryKey) {
+  if (!window.api?.getCategoryMessages) {
+    console.warn('[electronApi] window.api.getCategoryMessages is unavailable.');
+    return Promise.resolve([]);
+  }
+  return window.api.getCategoryMessages(chatId, categoryKey);
+}
+
+/**
  * Subscribes to import progress events from the main process.
  * @param {Function} callback - Receives `{ phase, percent, current, total }`.
  * @returns {Function} Unsubscribe function (no-op when IPC is unavailable).

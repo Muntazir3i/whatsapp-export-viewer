@@ -10,7 +10,7 @@ import { ChatHeader } from './ChatHeader.jsx';
  */
 export const NoParticipants = ({ selectedChat }) => {
   return (
-    <div className="w-full sm:ml-80 md:ml-96 h-screen flex flex-col bg-[#0b141a]">
+    <div className="w-full sm:ml-[340px] md:ml-[clamp(340px,30%,420px)] h-screen flex flex-col bg-[#0b141a]">
       <ChatHeader selectedChat={selectedChat} />
 
       <div className="flex-1 flex items-center justify-center">

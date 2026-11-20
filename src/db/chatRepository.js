@@ -83,6 +83,52 @@ export class chatRepository {
         `)
 
         this.deleteChatStmt = this.db.prepare('DELETE FROM chats WHERE id = ?');
+
+        // Aggregate counters shown in the chat info panel.
+        this.chatStatsStmt = this.db.prepare(`
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN type = 'file' AND category = 'image' THEN 1 ELSE 0 END) AS images,
+                SUM(CASE WHEN type = 'file' AND category = 'audio' THEN 1 ELSE 0 END) AS audio,
+                SUM(CASE WHEN type = 'file' AND category = 'document' THEN 1 ELSE 0 END) AS documents,
+                SUM(CASE WHEN type = 'link' THEN 1 ELSE 0 END) AS links
+            FROM messages
+            WHERE chat_id = ?
+        `);
+
+        const categoryQuery = (where) => this.db.prepare(`
+            SELECT id, sender, message, timestamp, category, extension
+            FROM messages
+            WHERE chat_id = ? AND ${where}
+            ORDER BY id ASC
+        `);
+
+        this.categoryStmts = {
+            images: categoryQuery("type = 'file' AND category = 'image'"),
+            audio: categoryQuery("type = 'file' AND category = 'audio'"),
+            documents: categoryQuery("type = 'file' AND category = 'document'"),
+            links: categoryQuery("type = 'link'"),
+        };
+    }
+
+    /**
+     * Aggregate message counters for a chat.
+     * @param {number|string} chat_id
+     * @returns {{ total: number, images: number, audio: number, documents: number, links: number }}
+     */
+    getChatStats(chat_id) {
+        return this.chatStatsStmt.get(chat_id);
+    }
+
+    /**
+     * All messages of one category (`images`, `audio`, `documents`, `links`), oldest-first.
+     * @param {number|string} chat_id
+     * @param {string} categoryStmt - Key of `categoryStmts`.
+     * @returns {Array<Object>}
+     */
+    getCategoryMessages(chat_id, categoryKey) {
+        const stmt = this.categoryStmts[categoryKey];
+        return stmt ? stmt.all(chat_id) : [];
     }
 
     /** @returns {Array<Object>} All chats with their latest message. */

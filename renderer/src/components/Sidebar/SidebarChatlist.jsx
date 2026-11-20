@@ -39,6 +39,7 @@ function formatLastMessage(chat) {
  * @param {boolean} props.loading - Indicates if chats are currently loading.
  * @param {Error|null} props.error - Error object if loading chats failed.
  * @param {Array<Object>} props.filteredChats - List of chats matching current filter.
+ * @param {Object|null} props.selectedChat - Chat currently open in the chat window.
  * @param {Function} props.setSelectedChat - Callback to select a chat.
  * @param {Function} [props.removeChat] - Callback to delete a chat by ID.
  * @returns {JSX.Element}
@@ -47,6 +48,7 @@ export const SidebarChatlist = ({
   loading,
   error,
   filteredChats,
+  selectedChat,
   setSelectedChat,
   removeChat,
 }) => {
@@ -115,7 +117,11 @@ export const SidebarChatlist = ({
             key={chat.id ?? chat.name ?? index}
             role="button"
             tabIndex={0}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-[#202c33] cursor-pointer transition-colors focus:outline-none focus:bg-[#202c33] select-none"
+            className={`flex items-center gap-3.5 px-3 py-2.5 cursor-pointer transition-colors focus:outline-none select-none border-b border-[#222d34]/40 ${
+              selectedChat?.id === chat.id
+                ? "bg-[#2a3942]"
+                : "hover:bg-[#202c33] focus:bg-[#202c33]"
+            }`}
             onClick={() => setSelectedChat(chat)}
             onContextMenu={(e) => handleContextMenu(e, chat)}
             onKeyDown={(e) => {
@@ -126,23 +132,23 @@ export const SidebarChatlist = ({
             }}
           >
             {/* Avatar with fallback initial letter */}
-            <div className="w-12 h-12 rounded-full bg-[#6b7c85] flex items-center justify-center text-white font-medium text-lg flex-shrink-0">
+            <div className="w-[49px] h-[49px] rounded-full bg-[#6b7c85] flex items-center justify-center text-white font-medium text-lg flex-shrink-0">
               {chat.name ? chat.name.charAt(0).toUpperCase() : '?'}
             </div>
 
             {/* Chat details preview */}
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-baseline mb-0.5">
-                <h3 className="text-[#e9edef] font-medium text-base truncate">
+                <h3 className="text-[#e9edef] font-normal text-[16px] truncate">
                   {chat.name}
                 </h3>
                 {chat.timestamp && (
-                  <span className="text-[#8696a0] text-xs flex-shrink-0 ml-2">
+                  <span className="text-[#8696a0] text-[12px] flex-shrink-0 ml-2">
                     {chat.timestamp}
                   </span>
                 )}
               </div>
-              <p className="text-[#8696a0] text-sm truncate text-left">
+              <p className="text-[#8696a0] text-[14px] truncate text-left">
                 {formatLastMessage(chat)}
               </p>
             </div>
