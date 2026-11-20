@@ -24,32 +24,32 @@ import { toStoredMediaPath } from "../services/appPaths.js";
  * @returns {boolean|null} True if the line begins with a valid date prefix, false for
  *   continuation lines, or null when the flavor is unknown.
  */
-export function isMessageStartLine(lineText,flavor) {
+export function isMessageStartLine(lineText, flavor) {
   if (flavor === "android") {
     // Android carries the timestamp before the first " - ".
-    const [timestampStr] = lineText.split(" - ");
-    const [dateString] = timestampStr.split(", ")
-    let [day, month, year] = dateString.split("/");
-    let fullYear = "20" + year;
-    let dateObj = new Date(fullYear, month - 1, day);
-    return !Number.isNaN(dateObj.getDate());
+    const [timestampPart] = lineText.split(" - ");
+    const [datePart] = timestampPart.split(", ")
+    let [day, month, year] = datePart.split("/");
+    const fourDigitYear = "20" + year;
+    const parsedDate = new Date(fourDigitYear, month - 1, day);
+    return !Number.isNaN(parsedDate.getDate());
   } else if (flavor === "ios") {
     // iOS wraps the timestamp in square brackets. Only the text before the
     // closing bracket is the timestamp; the message body may contain more.
-    const [RawTimeStampStr] = lineText.split("]")
+    const [beforeClosingBracket] = lineText.split("]")
     // Strip the opening bracket and any leading zero-width/bidi marks. iOS
     // prefixes phone-number senders and attachment lines with U+200E, which
     // would otherwise sit inside the day token and make the date invalid.
-    const timeStampStr = RawTimeStampStr.replaceAll("[", "").replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "").trim();
-    const [dateString, timeString] = timeStampStr.split(",")
-    // Continuation lines have no comma, so `timeString` is undefined; guard both
+    const timestampText = beforeClosingBracket.replaceAll("[", "").replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "").trim();
+    const [datePart, timePart] = timestampText.split(",")
+    // Continuation lines have no comma, so `timePart` is undefined; guard both
     // parts instead of assuming a complete timestamp is present.
-    const trimmedDate = (dateString ?? "").trim()
-    const trimmedTime = (timeString ?? "").trim()
-    let [day, month, year] = trimmedDate.split("/")
-    let fullYear = "20" + year;
-    let dateObj = new Date(fullYear, month - 1, day);
-    return !Number.isNaN(dateObj.getDate());
+    const trimmedDatePart = (datePart ?? "").trim()
+    const trimmedTimePart = (timePart ?? "").trim()
+    let [day, month, year] = trimmedDatePart.split("/")
+    const fourDigitYear = "20" + year;
+    const parsedDate = new Date(fourDigitYear, month - 1, day);
+    return !Number.isNaN(parsedDate.getDate());
   } else {
     // Unknown flavor: every line looks like a continuation, so the export would
     // collapse into one buffered message. Detection runs before streaming to
@@ -73,59 +73,58 @@ export function isMessageStartLine(lineText,flavor) {
 export function parseMessageText(rawMessageText, flavor) {
   if (flavor === "android") {
     // Timestamp ends at the first " - ".
-    let indexOfDash = rawMessageText.indexOf(" - ");
-    const timestampStr = rawMessageText.slice(0, indexOfDash);
-    const rest = rawMessageText.slice(indexOfDash + 3)
+    const separatorIndex = rawMessageText.indexOf(" - ");
+    const timestampText = rawMessageText.slice(0, separatorIndex);
+    const senderAndMessage = rawMessageText.slice(separatorIndex + 3)
 
-
-    if (rest.includes(": ")) {
-        const [sender, ...msgParts] = rest.split(": ");
-        const messageContent = msgParts.join(": ");
-        const [dateStr, timeStr] = timestampStr.split(", ");
+    if (senderAndMessage.includes(": ")) {
+        const [sender, ...messageSegments] = senderAndMessage.split(": ");
+        const messageBody = messageSegments.join(": ");
+        const [datePart, timePart] = timestampText.split(", ");
 
         return {
             sender: sender,
-            message: messageContent,
-            timestamp: `${dateStr} ${timeStr}`
+            message: messageBody,
+            timestamp: `${datePart} ${timePart}`
         };
     } else {
-        const [dateStr, timeStr] = timestampStr.split(", ");
+        const [datePart, timePart] = timestampText.split(", ");
         return {
             sender: null,
-            message: rest,
-            timestamp: `${dateStr} ${timeStr}`
+            message: senderAndMessage,
+            timestamp: `${datePart} ${timePart}`
         }
     }
   } else if (flavor === "ios") {
     // Timestamp sits between "[" and "]"; strip leading bidi/BOM marks first.
-    const line = rawMessageText.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
-    const bracketIndex = line.indexOf("]");
+    const normalizedLine = rawMessageText.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
+    const closingBracketIndex = normalizedLine.indexOf("]");
     // slice(1, ...) drops "[", the end index excludes "]".
-    const timestampStr = line.slice(1, bracketIndex);
+    const timestampText = normalizedLine.slice(1, closingBracketIndex);
     // trimStart handles a missing or doubled space after "]".
-    const rest = line.slice(bracketIndex + 1).trimStart();
+    const senderAndMessage = normalizedLine.slice(closingBracketIndex + 1).trimStart();
 
-    if (rest.includes(": ")) {
+    if (senderAndMessage.includes(": ")) {
         // Split on the first ": " so colons in the body stay intact.
-        const [sender, ...msgParts] = rest.split(": ");
-      // Strip the invisible marks iOS adds before numbers and attachments.
-      const rawMessageContent = msgParts.join(": ");
-      const messageContent = rawMessageContent.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
-      const [rawDateStr, rawTimeStr] = timestampStr.split(", ");
-      const dateStr = rawDateStr.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
-      const timeStr = rawTimeStr.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
+        const [sender, ...messageSegments] = senderAndMessage.split(": ");
+        // Strip the invisible marks iOS adds before numbers and attachments.
+        const joinedBody = messageSegments.join(": ");
+        const messageBody = joinedBody.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
+        const [rawDatePart, rawTimePart] = timestampText.split(", ");
+        const datePart = rawDatePart.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
+        const timePart = rawTimePart.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
 
         return {
             sender: sender,
-            message: messageContent,
-            timestamp: `${dateStr} ${timeStr}`
+            message: messageBody,
+            timestamp: `${datePart} ${timePart}`
         };
     } else {
-        const [dateStr, timeStr] = timestampStr.split(", ");
+        const [datePart, timePart] = timestampText.split(", ");
         return {
             sender: null,
-            message: rest,
-            timestamp: `${dateStr} ${timeStr}`
+            message: senderAndMessage,
+            timestamp: `${datePart} ${timePart}`
         }
     }
   }
@@ -141,31 +140,31 @@ const LINK_PATTERN = /(?:https?:\/\/|www\.)\S+/i;
  * Only "file" gets `extension`/`category`; the others get null. For a file, the
  * stored media path replaces `message`.
  *
- * @param {{sender: string|null, message: string, timestamp: string}} msgObj - Parsed message.
+ * @param {{sender: string|null, message: string, timestamp: string}} parsedMessage - Parsed message.
  * @param {string} mediaDir - Directory holding the chat file and its media files.
  * @param {string} userDataPath - OS userData directory from the Electron main process.
  * @param {"android"|"ios"} flavor - Export format, used for iOS-only markers.
  * @returns {Object} The message with `type`, `extension`, and `category` added.
  */
-export function classifyMessage(msgObj, mediaDir, userDataPath, flavor) {
-    if (msgObj.sender === null) {
+export function classifyMessage(parsedMessage, mediaDir, userDataPath, flavor) {
+    if (parsedMessage.sender === null) {
         // No sender means a system notice in both formats.
-        return { ...msgObj, type: "system", extension: null, category: null }
+        return { ...parsedMessage, type: "system", extension: null, category: null }
     }
 
-    if (msgObj.message === "<Media omitted>") {
+    if (parsedMessage.message === "<Media omitted>") {
         // Placeholder for media not included in the export.
-        return { ...msgObj, type: "media", extension: null, category: null }
+        return { ...parsedMessage, type: "media", extension: null, category: null }
     }
 
-    if (msgObj.message === "You deleted this message" || msgObj.message === "This message was deleted") {
+    if (parsedMessage.message === "You deleted this message" || parsedMessage.message === "This message was deleted") {
         // Both phrasings appear across formats and locales.
-        return { ...msgObj, type: "deleted", extension: null, category: null }
+        return { ...parsedMessage, type: "deleted", extension: null, category: null }
     }
 
-    if (msgObj.message.endsWith("(file attached)")) {
+    if (parsedMessage.message.endsWith("(file attached)")) {
         // Attachment line: "<filename> (file attached)".
-        const fileName = msgObj.message.slice(0, msgObj.message.indexOf("(file attached)")).trim();
+        const fileName = parsedMessage.message.slice(0, parsedMessage.message.indexOf("(file attached)")).trim();
 
         // A dotted suffix after at least one character is the extension.
         const dotIndex = fileName.lastIndexOf(".");
@@ -173,11 +172,11 @@ export function classifyMessage(msgObj, mediaDir, userDataPath, flavor) {
         const category = extension ? extensionToCategory[extension] ?? null : null;
 
         // Media sits next to the chat .txt, which may be a nested folder.
-        const absoluteMediaPath = path.join(mediaDir, fileName);
+        const mediaFilePath = path.join(mediaDir, fileName);
 
         return {
-            ...msgObj,
-            message: toStoredMediaPath(userDataPath, absoluteMediaPath),
+            ...parsedMessage,
+            message: toStoredMediaPath(userDataPath, mediaFilePath),
             extension,
             category,
             type: "file"
@@ -189,38 +188,56 @@ export function classifyMessage(msgObj, mediaDir, userDataPath, flavor) {
     if (flavor === "ios") {
         // iOS hides a bidi mark (U+200E) right before the edited marker. trim() keeps it
         // because it is not whitespace, so strip it first.
-        if (msgObj.message.endsWith("<This message was edited>")) {
-            const msg = msgObj.message.replace("<This message was edited>", "");
-            return { ...msgObj, message: msg, type: "text", extension: null, category: null }
-        } else if (msgObj.message.startsWith("<attached") && msgObj.message.endsWith(">")) {
-            let [withAttached, fileName] = msgObj.message.split(": ")
-            let result = fileName.replaceAll(">", "")
+        if (parsedMessage.message.endsWith("<This message was edited>")) {
+            const messageWithoutMarker = parsedMessage.message.replace("<This message was edited>", "");
+            return { ...parsedMessage, message: messageWithoutMarker, type: "text", extension: null, category: null }
+        } else if (parsedMessage.message.startsWith("<attached") && parsedMessage.message.endsWith(">")) {
+            const [, rawAttachmentName] = parsedMessage.message.split(": ")
+            const attachmentName = rawAttachmentName.replaceAll(">", "")
 
-            const dotIndex = result.lastIndexOf(".");
-            const extension = dotIndex > 0 ? result.slice(dotIndex).toLowerCase() : null;
+            const dotIndex = attachmentName.lastIndexOf(".");
+            const extension = dotIndex > 0 ? attachmentName.slice(dotIndex).toLowerCase() : null;
             const category = extension ? extensionToCategory[extension] ?? null : null;
-            const absoluteMediaPath = path.join(mediaDir, result);
+            const mediaFilePath = path.join(mediaDir, attachmentName);
             return {
-                ...msgObj,
-                message: toStoredMediaPath(userDataPath, absoluteMediaPath),
+                ...parsedMessage,
+                message: toStoredMediaPath(userDataPath, mediaFilePath),
                 extension,
                 category,
                 type: "file"
             }
-        } else if (msgObj.message === "You blocked this person" || msgObj.message === "You unblocked this person") {
-           return { ...msgObj, type: "system", extension: null, category: null }
-        }else if (msgObj.message.includes("Messages and calls are end-to-end encrypted. Only people in this chat can read, listen to, or share them.")) {
-          return { ...msgObj, sender:null, type: "system", extension: null, category: null }
+        } else if (parsedMessage.message === "You blocked this person" || parsedMessage.message === "You unblocked this person") {
+            return { ...parsedMessage, type: "system", extension: null, category: null }
+        } else if (parsedMessage.message.includes("Messages and calls are end-to-end encrypted. Only people in this chat can read, listen to, or share them.")) {
+            return { ...parsedMessage, sender: null, type: "system", extension: null, category: null }
+        } else if (parsedMessage.message.includes(" • ") && parsedMessage.message.includes("<attached: ") && parsedMessage.message.endsWith(">")) {
+            // Quoted reply with an attachment: "<quote> • <attached: file>".
+            const separatorIndex = parsedMessage.message.indexOf("• ")
+            const replyInfo = parsedMessage.message.slice(separatorIndex + 2)
+            const [, rawFileName] = replyInfo.split("<attached: ")
+            const fileName = rawFileName.replaceAll(">", "").trim();
+
+            const dotIndex = fileName.lastIndexOf(".");
+            const extension = dotIndex > 0 ? fileName.slice(dotIndex).toLowerCase() : null;
+            const category = extension ? extensionToCategory[extension] ?? null : null;
+            const mediaFilePath = path.join(mediaDir, fileName);
+            return {
+                ...parsedMessage,
+                message: toStoredMediaPath(userDataPath, mediaFilePath),
+                extension,
+                category,
+                type: "file"
+            }
         }
     }
 
-    if (LINK_PATTERN.test(msgObj.message)) {
+    if (LINK_PATTERN.test(parsedMessage.message)) {
         // Renderer turns URLs inside the message into external links.
-        return { ...msgObj, type: "link", extension: null, category: null }
+        return { ...parsedMessage, type: "link", extension: null, category: null }
     }
 
     // Plain text message.
-    return { ...msgObj, type: "text", extension: null, category: null }
+    return { ...parsedMessage, type: "text", extension: null, category: null }
 }
 
 
@@ -228,8 +245,8 @@ export function classifyMessage(msgObj, mediaDir, userDataPath, flavor) {
  * Encapsulates multi-line message buffering and line parsing state.
  *
  * An export stores each message as a start line followed by zero or more
- * continuation lines, so the current message is held in `buffer` until the next
- * start line (or end of stream) marks it complete.
+ * continuation lines, so the current message is held in `currentMessage` until
+ * the next start line (or end of stream) marks it complete.
  */
 export class MessageStreamBuffer {
     /**
@@ -237,7 +254,7 @@ export class MessageStreamBuffer {
      *   timestamp parser used for every line pushed through this buffer.
      */
     constructor(flavor) {
-        this.buffer = "";
+        this.currentMessage = "";
         this.flavor = flavor;
     }
 
@@ -251,14 +268,14 @@ export class MessageStreamBuffer {
      */
     processLine(line, mediaDir, userDataPath) {
         if (isMessageStartLine(line, this.flavor)) {
-            let completedMsg = null;
-            if (this.buffer !== "") {
-                completedMsg = classifyMessage(parseMessageText(this.buffer, this.flavor), mediaDir, userDataPath, this.flavor);
+            let completedMessage = null;
+            if (this.currentMessage !== "") {
+                completedMessage = classifyMessage(parseMessageText(this.currentMessage, this.flavor), mediaDir, userDataPath, this.flavor);
             }
-            this.buffer = line;
-            return completedMsg;
+            this.currentMessage = line;
+            return completedMessage;
         } else {
-            this.buffer += `\n${line}`;
+            this.currentMessage += `\n${line}`;
             return null;
         }
     }
@@ -271,10 +288,10 @@ export class MessageStreamBuffer {
      * @returns {Object|null} Final message object, or null if buffer is empty.
      */
     flush(mediaDir, userDataPath) {
-        if (this.buffer !== "") {
-            const finalMsg = classifyMessage(parseMessageText(this.buffer, this.flavor), mediaDir, userDataPath, this.flavor);
-            this.buffer = "";
-            return finalMsg;
+        if (this.currentMessage !== "") {
+            const finalMessage = classifyMessage(parseMessageText(this.currentMessage, this.flavor), mediaDir, userDataPath, this.flavor);
+            this.currentMessage = "";
+            return finalMessage;
         }
         return null;
     }
