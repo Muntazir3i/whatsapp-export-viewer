@@ -54,7 +54,9 @@ export function useMessages(chatId) {
 
   const loadMore = (chatId) => {
 
-    let itemId = messages[0].id
+    const itemId = messages[0]?.id;
+    if (!itemId) return;
+
     loadMessages(chatId, itemId)
       .then((result) => {
         if(result.length < 100){

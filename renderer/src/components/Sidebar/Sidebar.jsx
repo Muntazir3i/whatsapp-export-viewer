@@ -11,10 +11,11 @@ import { deleteChat } from '../../api/electronApi.js';
  *
  * @component
  * @param {Object} props
+ * @param {Object|null} props.selectedChat - Currently selected chat, used for row highlighting.
  * @param {Function} props.setSelectedChat - Callback function to update selected chat in parent App state.
  * @returns {JSX.Element}
  */
-export const Sidebar = ({ setSelectedChat }) => {
+export const Sidebar = ({ selectedChat, setSelectedChat }) => {
   // Fetch chats asynchronously from SQLite database IPC with refetch handler
   const { chats, loading, error, refetch } = useChats();
 
@@ -53,7 +54,7 @@ export const Sidebar = ({ setSelectedChat }) => {
   return (
     <aside
       id="default-sidebar"
-      className="fixed top-0 left-0 z-40 w-full sm:w-80 md:w-96 h-full bg-[#111b21] border-r border-[#222d34] flex flex-col transition-transform -translate-x-full sm:translate-x-0"
+      className="fixed top-0 left-0 z-40 w-full sm:w-[340px] md:w-[30%] md:min-w-[340px] md:max-w-[420px] h-full bg-[#111b21] flex flex-col transition-transform -translate-x-full sm:translate-x-0"
       aria-label="Sidebar"
     >
       {/* App brand header with Import Chat button */}
@@ -67,6 +68,7 @@ export const Sidebar = ({ setSelectedChat }) => {
         loading={loading}
         error={error}
         filteredChats={filteredChats}
+        selectedChat={selectedChat}
         setSelectedChat={setSelectedChat}
         removeChat={removeChat}
       />

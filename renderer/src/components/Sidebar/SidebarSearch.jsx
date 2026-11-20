@@ -9,8 +9,8 @@
  */
 export const SidebarSearch = ({ searchTerm, setSearchTerm }) => {
   return (
-    <div className="p-2 bg-[#111b21] flex-shrink-0">
-      <div className="bg-[#202c33] rounded-lg flex items-center px-3 py-1.5 focus-within:ring-1 focus-within:ring-[#00a884]">
+    <div className="px-3 py-2 bg-[#111b21] flex-shrink-0">
+      <div className="bg-[#202c33] rounded-lg flex items-center px-3 h-9 focus-within:ring-1 focus-within:ring-[#00a884]">
         {/* Search icon */}
         <svg
           className="w-4 h-4 text-[#8696a0] mr-3 flex-shrink-0"
@@ -30,10 +30,10 @@ export const SidebarSearch = ({ searchTerm, setSearchTerm }) => {
         {/* Input field */}
         <input
           type="text"
-          placeholder="Search Chat"
+          placeholder="Search or start new chat"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full bg-transparent text-[#e9edef] placeholder-[#8696a0] text-sm focus:outline-none"
+          className="w-full bg-transparent text-[#e9edef] placeholder-[#8696a0] text-[15px] focus:outline-none"
           aria-label="Search chats"
         />
 

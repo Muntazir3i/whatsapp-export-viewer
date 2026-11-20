@@ -57,6 +57,29 @@ contextBridge.exposeInMainWorld("api", {
     loadMoreMessages: (chatId, cursorId) => ipcRenderer.invoke("load-messages", chatId, cursorId),
 
     /**
+     * Opens a stored attachment with the OS default application.
+     * @param {string} storedPath - Imports-relative or absolute path from `messages.message`.
+     * @returns {Promise<{ success: boolean, error?: string }>}
+     */
+    openAttachment: (storedPath) => ipcRenderer.invoke("open-attachment", storedPath),
+
+    /**
+     * Fetches aggregate counters (total, images, audio, documents, links) for a chat.
+     * @param {number|string} chatId - Target chat ID.
+     * @returns {Promise<{ total: number, images: number, audio: number, documents: number, links: number }>}
+     */
+    getChatStats: (chatId) => ipcRenderer.invoke("get-chat-stats", chatId),
+
+    /**
+     * Fetches all messages of one category for the info panel.
+     * @param {number|string} chatId - Target chat ID.
+     * @param {string} categoryKey - "images" | "audio" | "documents" | "links".
+     * @returns {Promise<Array<Object>>}
+     */
+    getCategoryMessages: (chatId, categoryKey) =>
+        ipcRenderer.invoke("get-category-messages", chatId, categoryKey),
+
+    /**
      * Subscribes to import progress events emitted by the main process.
      * @param {Function} callback - Receives `{ phase, percent, current, total }`.
      * @returns {Function} Unsubscribe function that removes the listener.
