@@ -1,5 +1,6 @@
 import { ipcMain, dialog } from "electron";
 import { main } from "../../src/index.js";
+import { needsChatName } from "../../src/parser/importer.js";
 
 /**
  * Opens OS native file picker dialog for selecting a WhatsApp chat export file (.zip or .txt).
@@ -42,6 +43,12 @@ export function registerImportHandlers(db, userDataPath) {
       }
 
       const selectedFilePath = dialogResult.filePaths[0];
+
+      // iOS exports are always named "_chat.txt". If the filename and its folder
+      // carry no chat name, ask the renderer for one before importing.
+      if (needsChatName(selectedFilePath)) {
+        return { success: false, needsName: true, filePath: selectedFilePath };
+      }
 
       // 3. Execute ETL parsing & database insertion pipeline, streaming progress to the renderer
       const onProgress = (payload) => {

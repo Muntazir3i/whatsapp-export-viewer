@@ -236,6 +236,11 @@ export const ChatMessage = ({
                     onError={() => setFailedSrc(msg.message)}
                   />
                 </button>
+              ) : msg.type === "media" ? (
+                <p className="whitespace-pre-wrap break-words italic text-[#8696a0]">
+                  Media omitted
+                  {textMeta}
+                </p>
               ) : msg.type === "file" ? (
                 <div className="mb-2">
                   {msg.category === "image" ? (

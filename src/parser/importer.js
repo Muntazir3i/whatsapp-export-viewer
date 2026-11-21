@@ -11,19 +11,70 @@ import readline from "node:readline";
 import path from "path";
 
 /**
+ * Filename patterns WhatsApp uses for exported chats.
+ *   Android -> "WhatsApp Chat with Aatif"
+ *   iOS     -> "WhatsApp Chat - Anna"
+ */
+const CHAT_NAME_PATTERNS = [
+    /^WhatsApp Chat with\s+(.+)$/i,
+    /^WhatsApp Chat\s*-\s*(.+)$/i,
+];
+
+/**
+ * Returns the contact name encoded in a filename, or null when the name does
+ * not follow a known WhatsApp export pattern.
+ *
+ * @param {string} candidate - Filename without extension, or parent folder name.
+ * @returns {string|null} Extracted chat name.
+ */
+function matchChatName(candidate) {
+    for (const pattern of CHAT_NAME_PATTERNS) {
+        const match = candidate.match(pattern);
+        if (match) return match[1].trim();
+    }
+    return null;
+}
+
+/**
  * Extracts the relative file name and contact name from the file path.
  *
  * @param {string} filePath - Target chat export file path string.
- * @returns {[string, string]} Array containing `[fileName, contactName]`.
+ * @returns {[string, string, boolean]} `[fileName, contactName, isGenericName]`.
+ *   `isGenericName` is true when neither the filename nor its folder identified
+ *   the chat (for example iOS `_chat.txt` in a generic downloads folder).
  */
 export function extractChatFileInfo(filePath) {
     const fileName = path.basename(filePath);
     const ext = path.extname(fileName);
     const baseNameWithoutExt = path.basename(fileName, ext);
-    const withMatch = baseNameWithoutExt.match(/^WhatsApp Chat with\s+(.+)$/i);
-    const dashMatch = baseNameWithoutExt.match(/^WhatsApp Chat\s*-\s*(.+)$/i);
-    const contactName = (withMatch?.[1] ?? dashMatch?.[1] ?? baseNameWithoutExt).trim();
-    return [fileName, contactName];
+
+    // iOS always names the text file "_chat.txt", which carries no contact name.
+    // If the user picks that file out of an extracted folder, the folder is often
+    // still named after the original export ("WhatsApp Chat - Anna"). Only use it
+    // when it actually looks like a WhatsApp export name.
+    const candidates = [
+        baseNameWithoutExt,
+        path.basename(path.dirname(path.resolve(filePath))),
+    ];
+
+    for (const candidate of candidates) {
+        const contactName = matchChatName(candidate);
+        if (contactName) return [fileName, contactName, false];
+    }
+
+    return [fileName, baseNameWithoutExt.trim() || "Chat", true];
+}
+
+/**
+ * Returns true when the export file does not identify the chat, so the user
+ * should be asked for a name before importing.
+ *
+ * @param {string} filePath - Path to the selected `.zip` or `.txt` export.
+ * @returns {boolean}
+ */
+export function needsChatName(filePath) {
+    const [, , isGenericName] = extractChatFileInfo(filePath);
+    return isGenericName;
 }
 
 /**
@@ -51,18 +102,13 @@ export function extractChatMetadata(filePath) {
  * @returns {"android"|"ios"|null} Detected flavor, or null when neither format matched.
  */
 function findFlavor(firstLine) {
-  // Android is checked first so its delimiter wins on lines that carry both
-  // signals. Note this keys off " - " anywhere in the line, so an iOS first line
-  // whose body contains " - " would be misread as Android; the first line of an
-  // export is normally a timestamped message or system banner, so this is safe
-  // enough in practice.
-  let indexOfDash = firstLine.indexOf(" - ");
-  let indexOfColon = firstLine.indexOf("]");
-
-  if (indexOfDash > -1) {
-    return "android"
-  } else if (indexOfColon > -1) {
+  // iOS wraps its timestamp in square brackets, and that bracket is the most
+  // reliable signal. Checking " - " first would misread an iOS first line whose
+  // body contains " - " (for example a group notice) as Android.
+  if (/^[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF\s]*\[\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4},/.test(firstLine)) {
     return "ios"
+  } else if (firstLine.includes(" - ")) {
+    return "android"
   } else {
     return null
   }
@@ -87,11 +133,17 @@ export async function detectFlavor(filePath) {
    });
  
    for await (const line of rl) {
-     // First line is all we need; release the fd before the streaming pass reopens it.
+     // Skip blank/BOM-only leading lines; exports occasionally start with one.
+     if (line.trim() === "") continue;
+     // First real line is all we need; release the fd before the streaming pass
+     // reopens it.
      rl.close();
      fileStream.destroy();
      return findFlavor(line)
    }
+
+   // Empty file: no representative line, so the flavor is unknown.
+   return null;
 }
 
 /**

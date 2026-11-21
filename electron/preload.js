@@ -7,7 +7,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("api", {
     /**
      * Opens native file picker dialog and executes ETL pipeline to import a WhatsApp chat export (.zip or .txt).
-     * @returns {Promise<{ success: boolean, exist?: boolean, canceled?: boolean, error?: string, filePath?: string }>}
+     * @returns {Promise<{ success: boolean, exist?: boolean, canceled?: boolean, needsName?: boolean, error?: string, filePath?: string }>}
      */
     importChat: () => ipcRenderer.invoke("import-chat"),
 

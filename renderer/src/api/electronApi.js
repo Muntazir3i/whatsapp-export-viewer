@@ -32,7 +32,7 @@ export function getChats() {
 
 /**
  * Prompts native file picker dialog and executes import ETL pipeline via IPC.
- * @returns {Promise<{ success: boolean, exist?: boolean, canceled?: boolean, error?: string, filePath?: string }>}
+ * @returns {Promise<{ success: boolean, exist?: boolean, canceled?: boolean, needsName?: boolean, error?: string, filePath?: string }>}
  */
 export function importChat() {
   if (!window.api?.importChat) {

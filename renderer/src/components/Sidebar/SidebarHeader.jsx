@@ -15,6 +15,7 @@ export const SidebarHeader = ({ onImportSuccess }) => {
   const [isImporting, setIsImporting] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [exist, setExist] = useState(false);
+  const [needsName, setNeedsName] = useState(false);
   const [path, setPath] = useState("");
 
   /**
@@ -24,14 +25,16 @@ export const SidebarHeader = ({ onImportSuccess }) => {
     if (isImporting) return;
 
     setExist(false);
+    setNeedsName(false);
     setIsImporting(true);
     // Delay the modal slightly so quick imports don't flash a dialog.
     const dialogTimer = setTimeout(() => setShowDialog(true), 400);
 
     try {
       const result = await importChat();
-      
+
       setExist(result?.exist ?? false);
+      setNeedsName(result?.needsName ?? false);
       setPath(result?.filePath || "");
 
       if (result?.success && !result?.exist) {
@@ -122,8 +125,18 @@ export const SidebarHeader = ({ onImportSuccess }) => {
       {/* Importing Dialog */}
       {showDialog && (<ImportingDialog />)}
 
-      {/* Chat Already Exists Dialog */}
-      {exist && (<ChatExistDialog setExist={setExist} path={path} onImportSuccess={onImportSuccess} />)}
+      {/* Chat name / already exists dialog */}
+      {(exist || needsName) && (
+        <ChatExistDialog
+          setExist={(value) => {
+            setExist(value);
+            if (!value) setNeedsName(false);
+          }}
+          needsName={needsName}
+          path={path}
+          onImportSuccess={onImportSuccess}
+        />
+      )}
     </>
   );
 };

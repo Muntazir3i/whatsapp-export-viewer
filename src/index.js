@@ -130,6 +130,13 @@ async function runImportPipeline({
     // row that would then block a retry.
     flavor = await detectFlavor(chatFilePath);
 
+    // Reject unknown formats before creating the chat row. Otherwise the stream
+    // parser throws on the first message and leaves an empty chat behind, which
+    // then blocks a retry with a false duplicate-name collision.
+    if (flavor !== "android" && flavor !== "ios") {
+        throw new Error("Unsupported export format. Expected an Android or iOS WhatsApp chat export.");
+    }
+
     // Insert new chat metadata record into database
     const chatRecord = repository.createChat(chatMetadata);
     const chatId = chatRecord.id;

@@ -2,19 +2,30 @@ import { useState } from "react";
 import { importChatWithName } from "../../api/electronApi.js";
 
 /**
- * Modal dialog displayed when an imported chat session already exists in the database.
- * Prompts the user to either keep the existing chat or rename and import under a new name.
+ * Modal dialog for naming an import.
+ *
+ * Two modes:
+ *  - duplicate (`needsName` false): the chat already exists, so it offers to keep
+ *    the existing chat or import a copy under a new name.
+ *  - missing name (`needsName` true): the export filename does not identify the
+ *    chat (iOS `_chat.txt`), so it asks for a name before importing.
  *
  * @component
  * @param {Object} props
- * @param {Function} props.setExist - Callback to update existence dialog visibility state in parent component.
+ * @param {Function} props.setExist - Callback to update dialog visibility state in parent component.
  * @param {string} props.path - File path of the selected WhatsApp export file.
+ * @param {boolean} [props.needsName] - Skip the duplicate warning and ask for a name first.
  * @param {Function} [props.onImportSuccess] - Optional callback triggered after successful import to refetch chat list.
  * @returns {JSX.Element}
  */
-export const ChatExistDialog = ({ setExist, path, onImportSuccess }) => {
+export const ChatExistDialog = ({
+  setExist,
+  path,
+  needsName = false,
+  onImportSuccess,
+}) => {
   // Local state to toggle between duplicate warning view and new name input view
-  const [isRenaming, setIsRenaming] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(needsName);
   const [newName, setNewName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -69,7 +80,7 @@ export const ChatExistDialog = ({ setExist, path, onImportSuccess }) => {
             id="chat-exists-title"
             className="text-base font-semibold text-[#e9edef]"
           >
-            Chat Already Exists
+            {needsName ? "Name This Chat" : "Chat Already Exists"}
           </h2>
 
           <button
@@ -133,7 +144,7 @@ export const ChatExistDialog = ({ setExist, path, onImportSuccess }) => {
                 htmlFor="chat-rename"
                 className="block text-sm font-medium text-[#e9edef]"
               >
-                Enter a new chat name
+                {needsName ? "Enter a chat name" : "Enter a new chat name"}
               </label>
 
               <input
@@ -148,7 +159,9 @@ export const ChatExistDialog = ({ setExist, path, onImportSuccess }) => {
               />
 
               <p className="mt-2 text-xs text-[#8696a0]">
-                This name will be used for the imported chat.
+                {needsName
+                  ? "This export file does not include a chat name. The name is only stored locally."
+                  : "This name will be used for the imported chat."}
               </p>
             </div>
           )}
@@ -179,13 +192,17 @@ export const ChatExistDialog = ({ setExist, path, onImportSuccess }) => {
               <button
                 type="button"
                 disabled={isSubmitting}
-                onClick={() => {
-                  setIsRenaming(false);
-                  setNewName("");
-                }}
+                onClick={
+                  needsName
+                    ? handleClose
+                    : () => {
+                        setIsRenaming(false);
+                        setNewName("");
+                      }
+                }
                 className="rounded-md px-4 py-2 text-sm font-medium text-[#8696a0] transition-colors hover:bg-[#2a3942] hover:text-[#e9edef] disabled:opacity-50"
               >
-                Back
+                {needsName ? "Cancel" : "Back"}
               </button>
 
               <button
@@ -194,7 +211,11 @@ export const ChatExistDialog = ({ setExist, path, onImportSuccess }) => {
                 onClick={handleRename}
                 className="rounded-md bg-[#00a884] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#008f70] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {isSubmitting ? "Importing..." : "Continue"}
+                {isSubmitting
+                  ? "Importing..."
+                  : needsName
+                    ? "Import Chat"
+                    : "Continue"}
               </button>
             </>
           )}

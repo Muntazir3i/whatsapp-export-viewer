@@ -8,10 +8,28 @@ import { toStoredMediaPath } from "../services/appPaths.js";
  */
 
 /**
+ * Leading zero-width/bidi marks iOS adds before bracket timestamps and
+ * attachment names (U+200E and friends). They are not whitespace, so `trim()`
+ * does not remove them.
+ */
+const LEADING_INVISIBLE_MARKS = /^[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF\s]+/;
+
+/**
+ * Timestamp prefixes that mark the first line of a message.
+ *
+ * Both platforms format dates with the device locale, so the separator can be
+ * "/", "." or "-" (e.g. "25/04/22", "25.04.22", "25-04-22") and the year can
+ * have two or four digits. iOS wraps the timestamp in square brackets, Android
+ * appends " - " before the sender.
+ */
+const IOS_TIMESTAMP_PREFIX =
+  /^[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF\s]*\[\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4},\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s?[APap]\.?[Mm]\.?)?\]\s/;
+const ANDROID_TIMESTAMP_PREFIX =
+  /^[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF\s]*\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4},\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s?[APap]\.?[Mm]\.?)?\s+-\s/;
+
+/**
  * Checks whether a line starts a new message, based on its timestamp prefix.
  *
- * The check is format-specific because Android and iOS delimit the timestamp
- * differently:
  *   Android: "12/05/24, 10:16 - Sender: Message"
  *   iOS:     "[25/04/22, 7:36:20 PM] Sender: Message"
  *
@@ -21,35 +39,14 @@ import { toStoredMediaPath } from "../services/appPaths.js";
  *
  * @param {string} lineText - The line text to evaluate.
  * @param {"android"|"ios"} flavor - Export format resolved once per import by `detectFlavor`.
- * @returns {boolean|null} True if the line begins with a valid date prefix, false for
- *   continuation lines, or null when the flavor is unknown.
+ * @returns {boolean|null} True if the line begins with a valid timestamp prefix,
+ *   false for continuation lines, or null when the flavor is unknown.
  */
 export function isMessageStartLine(lineText, flavor) {
   if (flavor === "android") {
-    // Android carries the timestamp before the first " - ".
-    const [timestampPart] = lineText.split(" - ");
-    const [datePart] = timestampPart.split(", ")
-    let [day, month, year] = datePart.split("/");
-    const fourDigitYear = "20" + year;
-    const parsedDate = new Date(fourDigitYear, month - 1, day);
-    return !Number.isNaN(parsedDate.getDate());
+    return ANDROID_TIMESTAMP_PREFIX.test(lineText);
   } else if (flavor === "ios") {
-    // iOS wraps the timestamp in square brackets. Only the text before the
-    // closing bracket is the timestamp; the message body may contain more.
-    const [beforeClosingBracket] = lineText.split("]")
-    // Strip the opening bracket and any leading zero-width/bidi marks. iOS
-    // prefixes phone-number senders and attachment lines with U+200E, which
-    // would otherwise sit inside the day token and make the date invalid.
-    const timestampText = beforeClosingBracket.replaceAll("[", "").replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "").trim();
-    const [datePart, timePart] = timestampText.split(",")
-    // Continuation lines have no comma, so `timePart` is undefined; guard both
-    // parts instead of assuming a complete timestamp is present.
-    const trimmedDatePart = (datePart ?? "").trim()
-    const trimmedTimePart = (timePart ?? "").trim()
-    let [day, month, year] = trimmedDatePart.split("/")
-    const fourDigitYear = "20" + year;
-    const parsedDate = new Date(fourDigitYear, month - 1, day);
-    return !Number.isNaN(parsedDate.getDate());
+    return IOS_TIMESTAMP_PREFIX.test(lineText);
   } else {
     // Unknown flavor: every line looks like a continuation, so the export would
     // collapse into one buffered message. Detection runs before streaming to
@@ -97,7 +94,7 @@ export function parseMessageText(rawMessageText, flavor) {
     }
   } else if (flavor === "ios") {
     // Timestamp sits between "[" and "]"; strip leading bidi/BOM marks first.
-    const normalizedLine = rawMessageText.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
+    const normalizedLine = rawMessageText.replace(LEADING_INVISIBLE_MARKS, "");
     const closingBracketIndex = normalizedLine.indexOf("]");
     // slice(1, ...) drops "[", the end index excludes "]".
     const timestampText = normalizedLine.slice(1, closingBracketIndex);
@@ -106,13 +103,15 @@ export function parseMessageText(rawMessageText, flavor) {
 
     if (senderAndMessage.includes(": ")) {
         // Split on the first ": " so colons in the body stay intact.
-        const [sender, ...messageSegments] = senderAndMessage.split(": ");
+        const [rawSender, ...messageSegments] = senderAndMessage.split(": ");
+        // iOS prefixes phone-number senders with an invisible bidi mark.
+        const sender = rawSender.replace(LEADING_INVISIBLE_MARKS, "").trim();
         // Strip the invisible marks iOS adds before numbers and attachments.
         const joinedBody = messageSegments.join(": ");
-        const messageBody = joinedBody.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
+        const messageBody = joinedBody.replace(LEADING_INVISIBLE_MARKS, "");
         const [rawDatePart, rawTimePart] = timestampText.split(", ");
-        const datePart = rawDatePart.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
-        const timePart = rawTimePart.replace(/^[\u200E\u200F\u202A-\u202E\uFEFF\s]+/, "");
+        const datePart = rawDatePart.replace(LEADING_INVISIBLE_MARKS, "");
+        const timePart = rawTimePart.replace(LEADING_INVISIBLE_MARKS, "");
 
         return {
             sender: sender,
@@ -134,6 +133,14 @@ export function parseMessageText(rawMessageText, flavor) {
 const LINK_PATTERN = /(?:https?:\/\/|www\.)\S+/i;
 
 /**
+ * Placeholders written when media was excluded from the export.
+ * Android uses "<Media omitted>"; iOS names the media kind
+ * ("image omitted", "video omitted", "GIF omitted", ...).
+ */
+const MEDIA_OMITTED_PATTERN =
+    /^(?:<media omitted>|(?:image|video|audio|sticker|gif|contact card|document) omitted)$/i;
+
+/**
  * Adds a `type` (and media metadata) to a parsed message.
  *
  * Types: "system" (no sender), "media", "deleted", "file" (attachment), "link", "text".
@@ -152,8 +159,8 @@ export function classifyMessage(parsedMessage, mediaDir, userDataPath, flavor) {
         return { ...parsedMessage, type: "system", extension: null, category: null }
     }
 
-    if (parsedMessage.message === "<Media omitted>") {
-        // Placeholder for media not included in the export.
+    if (MEDIA_OMITTED_PATTERN.test(parsedMessage.message.trim())) {
+        // Placeholder for media not included in the export (Android and iOS).
         return { ...parsedMessage, type: "media", extension: null, category: null }
     }
 
@@ -163,8 +170,11 @@ export function classifyMessage(parsedMessage, mediaDir, userDataPath, flavor) {
     }
 
     if (parsedMessage.message.endsWith("(file attached)")) {
-        // Attachment line: "<filename> (file attached)".
-        const fileName = parsedMessage.message.slice(0, parsedMessage.message.indexOf("(file attached)")).trim();
+        // Attachment line: "<filename> (file attached)". Strip the marker and any
+        // directory components so a crafted export cannot escape mediaDir.
+        const fileName = path.basename(
+            parsedMessage.message.slice(0, -"(file attached)".length).trim()
+        );
 
         // A dotted suffix after at least one character is the extension.
         const dotIndex = fileName.lastIndexOf(".");
@@ -189,11 +199,16 @@ export function classifyMessage(parsedMessage, mediaDir, userDataPath, flavor) {
         // iOS hides a bidi mark (U+200E) right before the edited marker. trim() keeps it
         // because it is not whitespace, so strip it first.
         if (parsedMessage.message.endsWith("<This message was edited>")) {
-            const messageWithoutMarker = parsedMessage.message.replace("<This message was edited>", "");
+            // Removing the marker leaves the bidi mark iOS placed before it.
+            const messageWithoutMarker = parsedMessage.message
+                .replace("<This message was edited>", "")
+                .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF]+$/g, "")
+                .trimEnd();
             return { ...parsedMessage, message: messageWithoutMarker, type: "text", extension: null, category: null }
         } else if (parsedMessage.message.startsWith("<attached") && parsedMessage.message.endsWith(">")) {
-            const [, rawAttachmentName] = parsedMessage.message.split(": ")
-            const attachmentName = rawAttachmentName.replaceAll(">", "")
+            // Keep everything after the first ": " so a name containing ": " survives.
+            const rawAttachmentName = parsedMessage.message.slice(parsedMessage.message.indexOf(": ") + 2);
+            const attachmentName = path.basename(rawAttachmentName.replaceAll(">", "").trim());
 
             const dotIndex = attachmentName.lastIndexOf(".");
             const extension = dotIndex > 0 ? attachmentName.slice(dotIndex).toLowerCase() : null;
@@ -215,7 +230,7 @@ export function classifyMessage(parsedMessage, mediaDir, userDataPath, flavor) {
             const separatorIndex = parsedMessage.message.indexOf("• ")
             const replyInfo = parsedMessage.message.slice(separatorIndex + 2)
             const [, rawFileName] = replyInfo.split("<attached: ")
-            const fileName = rawFileName.replaceAll(">", "").trim();
+            const fileName = path.basename(rawFileName.replaceAll(">", "").trim());
 
             const dotIndex = fileName.lastIndexOf(".");
             const extension = dotIndex > 0 ? fileName.slice(dotIndex).toLowerCase() : null;
