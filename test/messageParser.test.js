@@ -7,6 +7,7 @@ import {
     classifyMessage,
     isMessageStartLine,
     parseMessageText,
+    stripInvisibleMarks,
 } from "../src/parser/messageParser.js";
 import {
     detectFlavor,
@@ -92,6 +93,47 @@ test("parseMessageText splits iOS timestamps, senders and attachment marks", () 
         "ios"
     );
     assert.equal(phoneSender.sender, "+1 (555) 123-4567");
+});
+
+test("parseMessageText strips bidi marks embedded in iOS bodies and senders", () => {
+    const parsed = parseMessageText(
+        "\u200e[25/04/22, 7:36:20\u202fPM] \u200eM\u200funti: hello \u200eworld\u200f "
+            + "\u202Aleft\u202C \u2066right\u2069 \uFEFFdone",
+        "ios"
+    );
+
+    assert.deepEqual(parsed, {
+        sender: "Munti",
+        message: "hello world left right done",
+        // The narrow no-break space in the timestamp is a real space, so it stays.
+        timestamp: "25/04/22 7:36:20\u202fPM",
+    });
+});
+
+test("parseMessageText strips bidi marks embedded in Android bodies and senders", () => {
+    const parsed = parseMessageText(
+        "12/05/24, 10:16 - \u200eAnna\u2069: a\u202eb\u202cc \u200ed\u200f",
+        "android"
+    );
+
+    assert.deepEqual(parsed, {
+        sender: "Anna",
+        message: "abc d",
+        timestamp: "12/05/24 10:16",
+    });
+});
+
+test("stripInvisibleMarks keeps joiners and narrow no-break spaces", () => {
+    assert.equal(
+        stripInvisibleMarks("\u200eA\u200f\u202aB\u202c\u2066C\u2069\ufeff"),
+        "ABC"
+    );
+
+    // ZWNJ/ZWJ shape Arabic, Indic, and emoji sequences; U+202F is real spacing.
+    assert.equal(
+        stripInvisibleMarks("a\u200cb\u200dc\u202f"),
+        "a\u200cb\u200dc\u202f"
+    );
 });
 
 test("parseMessageText keeps colons and dashes inside Android message bodies", () => {
@@ -282,11 +324,12 @@ test("streamChatMessages parses a CRLF iOS export end to end", async () => {
             filePath,
             [
                 "[25/04/22, 7:36:20\u202fPM] Munti: \u200eMessages and calls are end-to-end encrypted. Only people in this chat can read, listen to, or share them.",
-                "[25/04/22, 7:36:20\u202fPM] S: Munti sohaib here",
+                "[25/04/22, 7:36:20\u202fPM] S: Munti\u200e sohaib here",
                 "\u200e[03/05/22, 1:18:33\u202fAM] S: \u200e<attached: 00000010-PHOTO.jpg>",
                 "[03/05/22, 1:18:33\u202fAM] Munti: line one",
-                "line two",
+                "line two\u200f",
                 "[25/04/23, 19:36:20] Munti: image omitted",
+                "[03/05/22, 1:18:34\u202fAM] Munti: edited\u200e <This message was edited>",
             ].join("\r\n") + "\r\n"
         );
 
@@ -301,7 +344,7 @@ test("streamChatMessages parses a CRLF iOS export end to end", async () => {
             async (item) => parsed.push(item)
         );
 
-        assert.equal(parsed.length, 5);
+        assert.equal(parsed.length, 6);
         assert.equal(parsed[0].type, "system");
         assert.equal(parsed[0].sender, null);
         assert.equal(parsed[1].sender, "S");
@@ -311,6 +354,8 @@ test("streamChatMessages parses a CRLF iOS export end to end", async () => {
         assert.equal(parsed[3].message, "line one\nline two");
         assert.equal(parsed[4].type, "media");
         assert.equal(parsed[4].message, "image omitted");
+        assert.equal(parsed[5].type, "text");
+        assert.equal(parsed[5].message, "edited");
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }

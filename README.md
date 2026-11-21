@@ -66,6 +66,7 @@ WhatsApp allows users to export individual and group chat logs as plain `.txt` f
 ### Universal Export Parsing (ETL Pipeline)
 - **Multi-Format Ingestion**: Supports direct import of raw `.txt` files as well as compressed `.zip` export archives.
 - **Android & iOS Export Support**: Parses both standard export formats — Android (`DD/MM/YY, HH:MM - Sender: Message`) and iOS (`[DD/MM/YY, HH:MM:SS] Sender: Message`) — including multi-line messages, system notices, locale date separators, edited-message markers, and iOS `<attached: file>` notation.
+- **Unicode Cleanup**: Invisible bidi control marks and byte-order marks are removed from timestamps, sender names, and message bodies, including marks embedded mid-message. Meaningful joiners (`U+200C`/`U+200D`) and the narrow no-break space used in iOS timestamps are preserved.
 - **Memory-Efficient Streaming**: Employs Node.js stream readers and line buffers to parse large export files line-by-line without overloading system memory.
 - **Attachment Extraction & Classification**: Recognizes `name.ext (file attached)` lines, stores the extracted media path, and classifies the file by extension into `image`, `sticker`, `video`, `audio`, `document`, or `archive`.
 - **Transactional Batch Insertion**: Commits messages in batches of 1,000 using SQLite transactions, ensuring rapid ingestion even for conversations containing tens of thousands of messages.
@@ -232,15 +233,11 @@ The following features represent missing capabilities that are targeted for futu
 - **Current Limitation**: No mechanism to bookmark specific messages.
 - **Roadmap Goal**: Allow users to "star" critical messages and browse starred items from a dedicated sidebar tab.
 
-### 5. Unicode Formatting Mark Sanitization
-- **Current Limitation**: Leading directional marks (`\u200e`, `\u200f`), byte order marks (`\ufeff`), and the marks iOS places around attachment names and edited-message markers are stripped during parsing. Marks embedded inside message bodies and narrow non-breaking spaces inside timestamps are still preserved verbatim.
-- **Roadmap Goal**: Normalize every invisible formatting character so messages and participant names render identically across platforms.
-
-### 6. Decoded Audio Waveforms
+### 5. Decoded Audio Waveforms
 - **Current Limitation**: The voice-note player draws a deterministic pseudo-waveform derived from the media path, not the actual decoded audio.
 - **Roadmap Goal**: Decode audio and render a real amplitude waveform, with played/unplayed regions matching the true audio.
 
-### 7. Animated Sticker Playback
+### 6. Animated Sticker Playback
 - **Current Limitation**: Stickers are rendered as static images; animated `.webp` stickers do not play.
 - **Roadmap Goal**: Support animated sticker playback, including the loop and transparency behavior of the WhatsApp client.
 

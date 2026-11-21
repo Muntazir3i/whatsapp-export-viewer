@@ -22,8 +22,10 @@ All notable changes to this project are documented here.
   an iOS first line containing `" - "` is no longer misread as Android.
 - `_chat.txt` selected from an extracted folder uses the folder name
   (`WhatsApp Chat - Anna`) as the chat name when it matches a known export pattern.
-- Invisible bidi marks are stripped from sender names and around attachment names and
-  edited-message markers.
+- Invisible bidi control marks (`U+200E`, `U+200F`, `U+202A`–`U+202E`,
+  `U+2066`–`U+2069`) and byte-order marks are stripped from timestamps, sender names,
+  and message bodies — including marks embedded mid-message. Joiners (`U+200C`/`U+200D`)
+  and the narrow no-break space in iOS timestamps are preserved.
 
 ### Fixed
 - Unknown or malformed exports now fail with a clear "Unsupported export format" error before

@@ -8,11 +8,29 @@ import { toStoredMediaPath } from "../services/appPaths.js";
  */
 
 /**
- * Leading zero-width/bidi marks iOS adds before bracket timestamps and
- * attachment names (U+200E and friends). They are not whitespace, so `trim()`
- * does not remove them.
+ * Invisible bidi control characters and the byte-order mark. WhatsApp (iOS in
+ * particular) sprinkles these around timestamps, phone-number senders,
+ * attachment names, and edited-message markers.
+ *
+ * They are Unicode format characters (`Cf`), not whitespace, so `trim()` keeps
+ * them. The set deliberately excludes:
+ *  - `U+200C`/`U+200D` (ZWNJ/ZWJ), which shape Arabic/Indic text and emoji;
+ *  - `U+202F` (narrow no-break space), which is a real space in iOS timestamps.
  */
-const LEADING_INVISIBLE_MARKS = /^[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF\s]+/;
+const INVISIBLE_MARK_CHARACTERS = "\\u200E\\u200F\\u202A-\\u202E\\u2066-\\u2069\\uFEFF";
+
+/** Every occurrence of an invisible bidi mark, for embedded sanitization. */
+const INVISIBLE_MARKS = new RegExp(`[${INVISIBLE_MARK_CHARACTERS}]+`, "g");
+
+/**
+ * Removes bidi control characters and BOMs anywhere in a string.
+ *
+ * @param {string} text - Parsed sender, timestamp, or message body.
+ * @returns {string} Text without invisible bidi formatting marks.
+ */
+export function stripInvisibleMarks(text) {
+    return text.replace(INVISIBLE_MARKS, "");
+}
 
 /**
  * Timestamp prefixes that mark the first line of a message.
@@ -22,10 +40,12 @@ const LEADING_INVISIBLE_MARKS = /^[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF\
  * have two or four digits. iOS wraps the timestamp in square brackets, Android
  * appends " - " before the sender.
  */
-const IOS_TIMESTAMP_PREFIX =
-  /^[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF\s]*\[\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4},\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s?[APap]\.?[Mm]\.?)?\]\s/;
-const ANDROID_TIMESTAMP_PREFIX =
-  /^[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF\s]*\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4},\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s?[APap]\.?[Mm]\.?)?\s+-\s/;
+const IOS_TIMESTAMP_PREFIX = new RegExp(
+  `^[${INVISIBLE_MARK_CHARACTERS}\\s]*\\[\\d{1,4}[/.-]\\d{1,2}[/.-]\\d{1,4},\\s+\\d{1,2}:\\d{2}(?::\\d{2})?(?:\\s?[APap]\\.?[Mm]\\.?)?\\]\\s`
+);
+const ANDROID_TIMESTAMP_PREFIX = new RegExp(
+  `^[${INVISIBLE_MARK_CHARACTERS}\\s]*\\d{1,4}[/.-]\\d{1,2}[/.-]\\d{1,4},\\s+\\d{1,2}:\\d{2}(?::\\d{2})?(?:\\s?[APap]\\.?[Mm]\\.?)?\\s+-\\s`
+);
 
 /**
  * Checks whether a line starts a new message, based on its timestamp prefix.
@@ -68,11 +88,17 @@ export function isMessageStartLine(lineText, flavor) {
  * @returns {{sender: string|null, message: string, timestamp: string}}
  */
 export function parseMessageText(rawMessageText, flavor) {
+  // Strip invisible bidi marks from the whole block first: they add no visible
+  // content, but break `startsWith`/`endsWith` checks, sender identity matching,
+  // and attachment filenames. This also covers marks embedded mid-body and in
+  // continuation lines.
+  const sanitizedText = stripInvisibleMarks(rawMessageText);
+
   if (flavor === "android") {
     // Timestamp ends at the first " - ".
-    const separatorIndex = rawMessageText.indexOf(" - ");
-    const timestampText = rawMessageText.slice(0, separatorIndex);
-    const senderAndMessage = rawMessageText.slice(separatorIndex + 3)
+    const separatorIndex = sanitizedText.indexOf(" - ");
+    const timestampText = sanitizedText.slice(0, separatorIndex);
+    const senderAndMessage = sanitizedText.slice(separatorIndex + 3)
 
     if (senderAndMessage.includes(": ")) {
         const [sender, ...messageSegments] = senderAndMessage.split(": ");
@@ -93,25 +119,22 @@ export function parseMessageText(rawMessageText, flavor) {
         }
     }
   } else if (flavor === "ios") {
-    // Timestamp sits between "[" and "]"; strip leading bidi/BOM marks first.
-    const normalizedLine = rawMessageText.replace(LEADING_INVISIBLE_MARKS, "");
+    // Timestamp sits between "[" and "]". trimStart drops leading whitespace
+    // before "[" (the bidi marks are already gone).
+    const normalizedLine = sanitizedText.trimStart();
     const closingBracketIndex = normalizedLine.indexOf("]");
     // slice(1, ...) drops "[", the end index excludes "]".
     const timestampText = normalizedLine.slice(1, closingBracketIndex);
-    // trimStart handles a missing or doubled space after "]".
+    // trimStart also handles a missing or doubled space after "]".
     const senderAndMessage = normalizedLine.slice(closingBracketIndex + 1).trimStart();
 
     if (senderAndMessage.includes(": ")) {
         // Split on the first ": " so colons in the body stay intact.
         const [rawSender, ...messageSegments] = senderAndMessage.split(": ");
-        // iOS prefixes phone-number senders with an invisible bidi mark.
-        const sender = rawSender.replace(LEADING_INVISIBLE_MARKS, "").trim();
-        // Strip the invisible marks iOS adds before numbers and attachments.
-        const joinedBody = messageSegments.join(": ");
-        const messageBody = joinedBody.replace(LEADING_INVISIBLE_MARKS, "");
-        const [rawDatePart, rawTimePart] = timestampText.split(", ");
-        const datePart = rawDatePart.replace(LEADING_INVISIBLE_MARKS, "");
-        const timePart = rawTimePart.replace(LEADING_INVISIBLE_MARKS, "");
+        const sender = rawSender.trim();
+        // Drop the whitespace WhatsApp inserts after the colon.
+        const messageBody = messageSegments.join(": ").trimStart();
+        const [datePart, timePart] = timestampText.split(", ");
 
         return {
             sender: sender,
