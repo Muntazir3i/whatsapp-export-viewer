@@ -8,7 +8,14 @@ import { chatServices } from "../src/services/chatService.js";
 /**
  * Builds an in-memory database with two chats and the repository/service stack.
  *
- * @returns {{ db: Database, repo: chatRepository, service: chatServices, chatA: Object, chatB: Object }}
+ * @returns {{
+ *   db: Database,
+ *   repo: chatRepository,
+ *   service: chatServices,
+ *   writer: ChatRepository,
+ *   chatA: Object,
+ *   chatB: Object
+ * }}
  */
 function createFixture() {
     const db = new Database(":memory:");
@@ -65,19 +72,37 @@ function createFixture() {
     return { db, repo, service, writer, chatA, chatB };
 }
 
-const ids = (rows) => rows.map((row) => row.id).sort((a, b) => a - b);
+/** Inserts `count` text messages matching `term` and returns the inserted IDs. */
+function insertMatches(writer, chatId, term, count, timestamp = "02/01/24 10:00") {
+    writer.insertBatch(
+        Array.from({ length: count }, (_, index) => ({
+            chat_id: chatId,
+            sender: "Ann",
+            message: `${term} number ${index}`,
+            timestamp,
+            type: "text",
+            extension: null,
+            category: null,
+        }))
+    );
+}
 
-test("search is scoped to the requested chat", () => {
+const idsOf = (rows) => rows.map((row) => row.id);
+
+test("search is scoped to the requested chat and reports the total", () => {
     const { db, service, chatA, chatB } = createFixture();
 
     const inA = service.searchMessages(chatA.id, "quick");
     const inB = service.searchMessages(chatB.id, "quick");
 
-    assert.equal(inA.length, 1);
-    assert.equal(inB.length, 1);
-    assert.match(inA[0].snippet, /quick/);
-    assert.equal(inA[0].sender, "Ann");
-    assert.equal(inB[0].sender, "Bob");
+    assert.equal(inA.results.length, 1);
+    assert.equal(inA.total, 1);
+    assert.equal(inA.results[0].sender, "Ann");
+    assert.match(inA.results[0].snippet, /quick/);
+
+    assert.equal(inB.results.length, 1);
+    assert.equal(inB.total, 1);
+    assert.equal(inB.results[0].sender, "Bob");
 
     db.close();
 });
@@ -95,10 +120,35 @@ test("search ignores file and system messages", () => {
         category: null,
     });
 
-    const results = service.searchMessages(chatA.id, "quick");
+    const { results, total } = service.searchMessages(chatA.id, "quick");
 
     assert.equal(results.length, 1);
-    assert.equal(results[0].message, undefined); // file/system rows are excluded
+    assert.equal(total, 1);
+    assert.equal(results[0].message, undefined);
+
+    db.close();
+});
+
+test("results are newest first", () => {
+    const { db, writer, service, chatA } = createFixture();
+
+    writer.insertBatch(
+        ["oldest match needle", "middle match needle", "newest match needle"].map(
+            (message, index) => ({
+                chat_id: chatA.id,
+                sender: "Ann",
+                message,
+                timestamp: `03/01/24 10:0${index}`,
+                type: "text",
+                extension: null,
+                category: null,
+            })
+        )
+    );
+
+    const { results } = service.searchMessages(chatA.id, "needle");
+
+    assert.deepEqual(idsOf(results), [...idsOf(results)].sort((a, b) => b - a));
 
     db.close();
 });
@@ -106,9 +156,9 @@ test("search ignores file and system messages", () => {
 test("snippets carry the match markers used by the UI", () => {
     const { db, service, chatA } = createFixture();
 
-    const [result] = service.searchMessages(chatA.id, "brown");
+    const { results } = service.searchMessages(chatA.id, "brown");
 
-    assert.match(result.snippet, /\u0001brown\u0002/);
+    assert.match(results[0].snippet, /\u0001brown\u0002/);
 
     db.close();
 });
@@ -116,8 +166,8 @@ test("snippets carry the match markers used by the UI", () => {
 test("the last token is treated as a prefix", () => {
     const { db, service, chatA } = createFixture();
 
-    assert.equal(service.searchMessages(chatA.id, "bro").length, 1);
-    assert.equal(service.searchMessages(chatA.id, "brow").length, 1);
+    assert.equal(service.searchMessages(chatA.id, "bro").results.length, 1);
+    assert.equal(service.searchMessages(chatA.id, "brow").results.length, 1);
 
     db.close();
 });
@@ -125,7 +175,7 @@ test("the last token is treated as a prefix", () => {
 test("updates and deletes stay in sync with the index", () => {
     const { db, repo, service, chatA } = createFixture();
 
-    const target = service.searchMessages(chatA.id, "lunch")[0];
+    const target = service.searchMessages(chatA.id, "lunch").results[0];
     assert.ok(target);
 
     db.prepare("UPDATE messages SET message = ? WHERE id = ?").run(
@@ -133,11 +183,11 @@ test("updates and deletes stay in sync with the index", () => {
         target.id
     );
 
-    assert.equal(service.searchMessages(chatA.id, "lunch").length, 0);
-    assert.equal(service.searchMessages(chatA.id, "dinner").length, 1);
+    assert.equal(service.searchMessages(chatA.id, "lunch").total, 0);
+    assert.equal(service.searchMessages(chatA.id, "dinner").total, 1);
 
     db.prepare("DELETE FROM messages WHERE id = ?").run(target.id);
-    assert.equal(service.searchMessages(chatA.id, "dinner").length, 0);
+    assert.equal(service.searchMessages(chatA.id, "dinner").total, 0);
 
     db.close();
 });
@@ -147,8 +197,8 @@ test("deleting a chat removes its messages from the index", () => {
 
     repo.deleteChat(chatA.id);
 
-    assert.equal(service.searchMessages(chatA.id, "quick").length, 0);
-    assert.equal(service.searchMessages(chatB.id, "quick").length, 1);
+    assert.equal(service.searchMessages(chatA.id, "quick").total, 0);
+    assert.equal(service.searchMessages(chatB.id, "quick").total, 1);
 
     db.close();
 });
@@ -185,26 +235,50 @@ test("hostile query strings never throw through the service", () => {
     db.close();
 });
 
-test("limit is clamped to a safe range", () => {
+test("limit is clamped and does not change the total", () => {
     const { db, writer, service, chatA } = createFixture();
 
-    writer.insertBatch(
-        Array.from({ length: 150 }, (_, index) => ({
-            chat_id: chatA.id,
-            sender: "Ann",
-            message: `needle number ${index}`,
-            timestamp: `02/01/24 10:${String(index % 60).padStart(2, "0")}`,
-            type: "text",
-            extension: null,
-            category: null,
-        }))
-    );
+    insertMatches(writer, chatA.id, "needle", 150);
 
-    assert.equal(service.searchMessages(chatA.id, "needle", 0).length, 1);
-    assert.equal(service.searchMessages(chatA.id, "needle", 2.7).length, 2);
-    assert.equal(service.searchMessages(chatA.id, "needle", -5).length, 1);
-    assert.equal(service.searchMessages(chatA.id, "needle", 9999).length, 100);
-    assert.equal(service.searchMessages(chatA.id, "needle", "abc").length, 50);
+    assert.equal(service.searchMessages(chatA.id, "needle", 0).results.length, 1);
+    assert.equal(service.searchMessages(chatA.id, "needle", 2.7).results.length, 2);
+    assert.equal(service.searchMessages(chatA.id, "needle", -5).results.length, 1);
+    assert.equal(service.searchMessages(chatA.id, "needle", 9999).results.length, 100);
+    assert.equal(service.searchMessages(chatA.id, "needle", "abc").results.length, 50);
+
+    assert.equal(service.searchMessages(chatA.id, "needle", 5).total, 150);
+
+    db.close();
+});
+
+test("the ID cursor pages through older matches without gaps or repeats", () => {
+    const { db, writer, service, chatA, chatB } = createFixture();
+
+    insertMatches(writer, chatA.id, "needle", 150);
+    insertMatches(writer, chatB.id, "needle", 10);
+
+    const first = service.searchMessages(chatA.id, "needle", 50);
+    assert.equal(first.results.length, 50);
+    assert.equal(first.total, 150);
+    assert.equal(first.total, 150, "other chats do not contribute to the total");
+
+    const second = service.searchMessages(chatA.id, "needle", 50, first.results.at(-1).id);
+    const third = service.searchMessages(chatA.id, "needle", 50, second.results.at(-1).id);
+
+    assert.equal(second.results.length, 50);
+    assert.equal(third.results.length, 50);
+    // The total is only counted for the first page; the client keeps it.
+    assert.equal(second.total, null);
+    assert.equal(third.total, null);
+
+    const collected = [...first.results, ...second.results, ...third.results];
+    assert.equal(collected.length, 150);
+    assert.equal(new Set(idsOf(collected)).size, 150);
+
+    // Chronological: every page continues below the previous page's cursor.
+    for (let i = 1; i < collected.length; i++) {
+        assert.ok(collected[i].id < collected[i - 1].id);
+    }
 
     db.close();
 });
@@ -246,9 +320,8 @@ test("message window ends at the target and stays inside the chat", () => {
     assert.ok(window.every((row) => row.chat_id === chatA.id));
     assert.ok(window[0].id > all[0].id);
 
-    // The window must contain the search hit when the same target is searched.
-    const expected = ids(all.slice(21, 121));
-    assert.deepEqual(ids(window), expected);
+    const expected = idsOf(all.slice(21, 121));
+    assert.deepEqual(idsOf(window), expected);
 
     db.close();
 });

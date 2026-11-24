@@ -60,11 +60,12 @@ contextBridge.exposeInMainWorld("api", {
      * Searches the text of one chat using SQLite FTS5.
      * @param {number|string} chatId - Target chat unique identifier.
      * @param {string} rawQuery - Text typed into the search box.
-     * @param {number|string} [limit] - Maximum results (1-100).
-     * @returns {Promise<Array<{ id: number, sender: string|null, timestamp: string, snippet: string }>>}
+     * @param {number|string} [limit] - Maximum results per page (1-100).
+     * @param {number|string|null} [beforeId] - Cursor for the next page.
+     * @returns {Promise<{ results: Array<{ id: number, sender: string|null, timestamp: string, snippet: string }>, total: number|null }>}
      */
-    searchMessages: (chatId, rawQuery, limit) =>
-        ipcRenderer.invoke("search-messages", chatId, rawQuery, limit),
+    searchMessages: (chatId, rawQuery, limit, beforeId) =>
+        ipcRenderer.invoke("search-messages", chatId, rawQuery, limit, beforeId),
 
     /**
      * Loads the messages surrounding a search hit, ending at that message.

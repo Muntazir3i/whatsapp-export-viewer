@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useChatSearch } from '../../hooks/useChatSearch.js';
 import { ChatHeader } from './ChatHeader.jsx';
 import { ChatSearch } from './ChatSearch.jsx';
 import { ReadOnlyInput } from './ReadOnlyInput.jsx';
@@ -65,8 +66,11 @@ export const ChatView = ({
   // Whether the in-chat search panel replaces the message list.
   const [searchOpen, setSearchOpen] = useState(false);
 
+  // Search results live above the panel so they survive closing it.
+  const search = useChatSearch(selectedChat?.id, searchOpen);
+
   // Search session kept after a result is opened, so the arrows can move between
-  // hits without reopening the panel: { query, results, index }.
+  // hits without reopening the panel: { query, index }.
   const [searchSession, setSearchSession] = useState(null);
 
   // Reset the info, search, and navigation state synchronously when switching chats.
@@ -190,25 +194,38 @@ export const ChatView = ({
 
   /**
    * SEARCH RESULT SELECTION:
-   * Close the search panel, remember the result list for arrow navigation, and
-   * load the window of messages ending at the hit.
+   * Close the search panel, remember the position, and load the window ending at
+   * the chosen hit.
    */
-  const handleSearchSelect = ({ id, index, query, results }) => {
+  const handleSearchSelect = (index) => {
+    const hit = search.results[index];
+    if (!hit) return;
+
     setSearchOpen(false);
-    setSearchSession({ query, results, index });
-    jumpToMessage?.(id);
+    setSearchSession({ query: search.trimmed, index });
+    jumpToMessage?.(hit.id);
   };
 
-  /** Moves to the previous (-1) or next (+1) search hit and jumps to it. */
-  const stepSearchResult = (delta) => {
-    if (!searchSession) return;
+  /** Moves to the previous (-1) or next (+1) search hit, loading pages as needed. */
+  const stepSearchResult = async (delta) => {
+    if (!searchSession || searchSession.query !== search.trimmed) return;
 
     const nextIndex = searchSession.index + delta;
-    const next = searchSession.results[nextIndex];
-    if (!next) return;
+    if (nextIndex < 0) return;
 
-    setSearchSession({ ...searchSession, index: nextIndex });
-    jumpToMessage?.(next.id);
+    let hit = search.results[nextIndex];
+
+    // Reached the end of the loaded pages: fetch older matches, then land on the first.
+    if (!hit) {
+      if (delta < 0 || !search.hasMore || search.loadingMore) return;
+
+      const added = await search.loadMore();
+      hit = added[0];
+      if (!hit) return;
+    }
+
+    setSearchSession({ query: search.trimmed, index: nextIndex });
+    jumpToMessage?.(hit.id);
   };
 
   /** Re-pins the viewport to the newest message and ends the search session. */
@@ -218,9 +235,15 @@ export const ChatView = ({
     jumpToLatest?.();
   };
 
-  const atFirstResult = !searchSession || searchSession.index === 0;
+  // The session is stale if the query was edited without selecting a new hit.
+  const activeSession =
+    searchSession && searchSession.query === search.trimmed ? searchSession : null;
+
+  const atFirstResult = !activeSession || activeSession.index === 0;
   const atLastResult =
-    !searchSession || searchSession.index >= searchSession.results.length - 1;
+    !activeSession ||
+    search.loadingMore ||
+    (!search.hasMore && activeSession.index >= search.results.length - 1);
 
   return (
     <div className="w-full sm:ml-[340px] md:ml-[clamp(340px,30%,420px)] h-screen flex flex-col bg-[#0b141a] overflow-hidden">
@@ -246,10 +269,16 @@ export const ChatView = ({
       {!showInfo && searchOpen && (
         <ChatSearch
           key={selectedChat?.id}
-          chatId={selectedChat?.id}
-          initialQuery={searchSession?.query || ''}
-          onSelect={handleSearchSelect}
+          query={search.query}
+          onQueryChange={search.setQuery}
           onClose={() => setSearchOpen(false)}
+          status={search.status}
+          results={search.results}
+          total={search.total}
+          hasMore={search.hasMore}
+          loadingMore={search.loadingMore}
+          onLoadMore={search.loadMore}
+          onSelect={handleSearchSelect}
         />
       )}
 
@@ -304,14 +333,14 @@ export const ChatView = ({
       {/* Jumped to a search result: arrow between hits, or return to the newest messages */}
       {focusMessageId && (
         <div className="flex items-center justify-center gap-2 bg-[#111b21] px-3 py-2 flex-shrink-0">
-          {searchSession && (
+          {activeSession && (
             <div className="flex items-center rounded-full bg-[#202c33] py-0.5 pl-3 pr-1 shadow-sm">
               <span
                 className="text-[12px] tabular-nums text-[#8696a0]"
                 aria-live="polite"
                 title="Current match of total matches"
               >
-                {searchSession.index + 1} / {searchSession.results.length}
+                {activeSession.index + 1} / {search.total}
               </span>
 
               <button

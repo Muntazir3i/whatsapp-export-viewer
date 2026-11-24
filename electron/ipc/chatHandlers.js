@@ -58,14 +58,16 @@ export function registerChatHandlers(chatService, userDataPath) {
      * @param {Object} _ - IPC event (unused).
      * @param {number|string} chatId - Target chat ID.
      * @param {string} rawQuery - Text typed into the search box.
-     * @param {number|string} [limit] - Maximum results (1-100).
+     * @param {number|string} [limit] - Maximum results per page (1-100).
+     * @param {number|string|null} [beforeId] - Cursor for the next page.
+     * @returns {{ results: Array<Object>, total: number }}
      */
-    ipcMain.handle("search-messages", (_, chatId, rawQuery, limit) => {
+    ipcMain.handle("search-messages", (_, chatId, rawQuery, limit, beforeId) => {
         try {
-            return chatService.searchMessages(chatId, rawQuery, limit);
+            return chatService.searchMessages(chatId, rawQuery, limit, beforeId);
         } catch (error) {
             console.error("[search-messages]", error);
-            return [];
+            return { results: [], total: 0 };
         }
     });
 

@@ -1,11 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { searchMessages } from '../../api/electronApi.js';
-
-/** Debounce before a query reaches SQLite. */
-const DEBOUNCE_MS = 250;
-
-/** Minimum trimmed length sent to the main process (mirrors the parser minimum). */
-const MIN_QUERY_LENGTH = 2;
+import { useEffect, useRef } from 'react';
+import { MIN_SEARCH_LENGTH } from '../../hooks/useChatSearch.js';
 
 /**
  * Shortens a stored timestamp to its clock portion ("7:36:20 PM" -> "7:36 PM").
@@ -22,7 +16,7 @@ function formatTime(timestamp) {
  * Renders an FTS5 snippet, turning the `\u0001`/`\u0002` match markers into `<mark>`.
  *
  * @param {Object} props
- * @param {string} [props.text] - Snippet returned by `snippet(message_fts, ...)`.
+ * @param {string} [props.text] - Snippet returned by `snippet(messages_fts, ...)`.
  * @returns {JSX.Element}
  */
 function Snippet({ text = '' }) {
@@ -44,69 +38,42 @@ function Snippet({ text = '' }) {
 }
 
 /**
- * In-chat full-text search panel: a debounced input and the matching messages.
- * Selecting a result hands the message ID back so the chat can jump to it.
+ * In-chat search panel: input, result list, and cursor-based "show more".
+ * Search state lives in `useChatSearch` so results survive closing the panel and
+ * the arrows can keep navigating after a jump.
  *
  * @component
  * @param {Object} props
- * @param {number|string} props.chatId - Chat being searched.
- * @param {Function} props.onSelect - Called with `{ id, index, query, results }` for the chosen hit.
+ * @param {string} props.query - Current query text.
+ * @param {Function} props.onQueryChange - Updates the query.
  * @param {Function} props.onClose - Closes the search panel.
- * @param {string} [props.initialQuery] - Query to restore when the panel is reopened.
+ * @param {'idle'|'loading'|'done'|'error'} props.status - Derived search status.
+ * @param {Array<Object>} props.results - Loaded matches, newest first.
+ * @param {number} props.total - Total matches in this chat.
+ * @param {boolean} props.hasMore - Whether older matches are not loaded yet.
+ * @param {boolean} props.loadingMore - Whether the next page is in flight.
+ * @param {Function} props.onLoadMore - Loads the next page.
+ * @param {Function} props.onSelect - Called with the index of a chosen result.
  * @returns {JSX.Element}
  */
-export const ChatSearch = ({ chatId, onSelect, onClose, initialQuery = '' }) => {
-  const [query, setQuery] = useState(initialQuery);
-
-  // Results are tagged with the query they belong to, so "loading" can be derived
-  // while the debounced request is in flight instead of set inside the effect.
-  const [resultState, setResultState] = useState({
-    query: null,
-    rows: [],
-    status: 'idle',
-  });
-
+export const ChatSearch = ({
+  query,
+  onQueryChange,
+  onClose,
+  status,
+  results,
+  total,
+  hasMore,
+  loadingMore,
+  onLoadMore,
+  onSelect,
+}) => {
   const inputRef = useRef(null);
 
   // Focus the field as soon as the panel opens.
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-
-  const trimmed = query.trim();
-  const tooShort = trimmed.length < MIN_QUERY_LENGTH;
-
-  const status = tooShort
-    ? 'idle'
-    : resultState.query === trimmed
-      ? resultState.status
-      : 'loading';
-
-  const results = tooShort ? [] : resultState.rows;
-
-  useEffect(() => {
-    if (tooShort) return;
-
-    let active = true;
-
-    const timer = setTimeout(() => {
-      searchMessages(chatId, trimmed)
-        .then((rows) => {
-          if (!active) return;
-          setResultState({ query: trimmed, rows: rows || [], status: 'done' });
-        })
-        .catch(() => {
-          if (!active) return;
-          setResultState({ query: trimmed, rows: [], status: 'error' });
-        });
-    }, DEBOUNCE_MS);
-
-    // Cancel the pending request when the query changes again (stale-response guard).
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [chatId, trimmed, tooShort]);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-[#111b21]">
@@ -132,7 +99,7 @@ export const ChatSearch = ({ chatId, onSelect, onClose, initialQuery = '' }) => 
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => onQueryChange(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Escape') onClose();
             }}
@@ -144,7 +111,7 @@ export const ChatSearch = ({ chatId, onSelect, onClose, initialQuery = '' }) => 
           {query && (
             <button
               type="button"
-              onClick={() => setQuery('')}
+              onClick={() => onQueryChange('')}
               aria-label="Clear search"
               className="flex-shrink-0 rounded-full p-0.5 text-[#8696a0] transition-colors hover:text-[#e9edef] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb]"
             >
@@ -168,7 +135,7 @@ export const ChatSearch = ({ chatId, onSelect, onClose, initialQuery = '' }) => 
       <div className="flex-1 overflow-y-auto">
         {status === 'idle' && (
           <p className="px-4 py-6 text-center text-[13px] text-[#8696a0]">
-            Type at least {MIN_QUERY_LENGTH} characters to search this chat.
+            Type at least {MIN_SEARCH_LENGTH} characters to search this chat.
           </p>
         )}
 
@@ -193,7 +160,7 @@ export const ChatSearch = ({ chatId, onSelect, onClose, initialQuery = '' }) => 
         {status === 'done' && results.length > 0 && (
           <>
             <p className="px-4 pt-3 pb-1 text-[12px] uppercase tracking-wide text-[#8696a0]">
-              {results.length} {results.length === 1 ? 'message' : 'messages'}
+              {total} {total === 1 ? 'message' : 'messages'}
             </p>
 
             <ul>
@@ -201,7 +168,7 @@ export const ChatSearch = ({ chatId, onSelect, onClose, initialQuery = '' }) => 
                 <li key={result.id}>
                   <button
                     type="button"
-                    onClick={() => onSelect({ id: result.id, index, query: trimmed, results })}
+                    onClick={() => onSelect(index)}
                     className="w-full border-b border-white/5 px-4 py-3 text-left transition-colors hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#53bdeb]"
                   >
                     <div className="flex items-baseline justify-between gap-2">
@@ -220,6 +187,21 @@ export const ChatSearch = ({ chatId, onSelect, onClose, initialQuery = '' }) => 
                 </li>
               ))}
             </ul>
+
+            {hasMore && (
+              <div className="p-3">
+                <button
+                  type="button"
+                  onClick={onLoadMore}
+                  disabled={loadingMore}
+                  className="w-full rounded-md bg-[#202c33] py-2 text-[13px] text-[#e9edef] transition-colors hover:bg-[#2a3942] disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb]"
+                >
+                  {loadingMore
+                    ? 'Loading…'
+                    : `Show more (${total - results.length} left)`}
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

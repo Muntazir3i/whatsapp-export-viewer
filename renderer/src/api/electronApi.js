@@ -111,15 +111,16 @@ export function loadMoreMessages(chatId, cursorId) {
  * Searches the text of one chat through SQLite FTS5.
  * @param {string|number} chatId - The chat to search in.
  * @param {string} rawQuery - Text typed into the search box.
- * @param {number} [limit] - Maximum results (1-100).
- * @returns {Promise<Array<{ id: number, sender: string|null, timestamp: string, snippet: string }>>}
+ * @param {number} [limit] - Maximum results per page (1-100).
+ * @param {string|number|null} [beforeId] - Cursor for the next page.
+ * @returns {Promise<{ results: Array<{ id: number, sender: string|null, timestamp: string, snippet: string }>, total: number|null }>}
  */
-export function searchMessages(chatId, rawQuery, limit) {
+export function searchMessages(chatId, rawQuery, limit, beforeId) {
   if (!window.api?.searchMessages) {
     console.warn('[electronApi] window.api.searchMessages is unavailable.');
-    return Promise.resolve([]);
+    return Promise.resolve({ results: [], total: 0 });
   }
-  return window.api.searchMessages(chatId, rawQuery, limit);
+  return window.api.searchMessages(chatId, rawQuery, limit, beforeId);
 }
 
 /**

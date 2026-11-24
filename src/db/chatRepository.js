@@ -100,21 +100,33 @@ export class chatRepository {
             ORDER BY id ASC;
         `);
 
-        // In-chat search: rank with bm25 and return highlighted snippets.
+        // In-chat search: newest matches first. The `id < ?` bound lets SQLite walk
+        // the (chat_id, id) index instead of ranking every match, and the first page
+        // passes MAX_SAFE_INTEGER so it uses the same plan.
         this.searchChatMessagesStmt = this.db.prepare(`
             SELECT
                 m.id,
                 m.sender,
                 m.timestamp,
-                bm25(messages_fts) AS rank,
                 snippet(messages_fts, 0, char(1), char(2), '…', 12) AS snippet
             FROM messages_fts
             JOIN messages m ON m.id = messages_fts.rowid
             WHERE messages_fts MATCH ?
                 AND m.chat_id = ?
                 AND m.type IN ('text', 'link')
-            ORDER BY rank, m.id DESC
+                AND m.id < ?
+            ORDER BY m.id DESC
             LIMIT ?;
+        `);
+
+        // Total matches for the same query, so the UI can say "50 of 217".
+        this.countChatMessagesStmt = this.db.prepare(`
+            SELECT COUNT(*) AS total
+            FROM messages_fts
+            JOIN messages m ON m.id = messages_fts.rowid
+            WHERE messages_fts MATCH ?
+                AND m.chat_id = ?
+                AND m.type IN ('text', 'link');
         `);
 
         this.checkChatExistStmt = this.db.prepare(`
@@ -213,20 +225,40 @@ export class chatRepository {
     }
 
     /**
-     * Searches one chat's text and link messages.
+     * Searches one chat's text and link messages, newest first.
+     *
+     * Pagination is keyset-based: pass the last seen message ID as `beforeId` to
+     * fetch the next page. The `id < ?` bound lets SQLite walk the `(chat_id, id)`
+     * index and stop once the page is full, rather than sorting every match as
+     * `ORDER BY bm25(...)` or an `OFFSET` would.
      *
      * @param {number|string} chatId
      * @param {string} matchQuery - FTS5 expression from `buildMatchQuery`.
      * @param {number|string} [limit] - Requested result count (1-100).
-     * @returns {Array<{ id: number, sender: string|null, timestamp: string, rank: number, snippet: string }>}
+     * @param {number|string|null} [beforeId] - Return only matches older than this ID.
+     * @returns {Array<{ id: number, sender: string|null, timestamp: string, snippet: string }>}
      */
-    searchChatMessages(chatId, matchQuery, limit = 50) {
+    searchChatMessages(chatId, matchQuery, limit = 50, beforeId = null) {
         if (!chatId || !matchQuery) return [];
+
         return this.searchChatMessagesStmt.all(
             matchQuery,
             chatId,
+            beforeId ?? Number.MAX_SAFE_INTEGER,
             clampLimit(limit, 50, 100)
         );
+    }
+
+    /**
+     * Total number of messages matching the query in this chat.
+     *
+     * @param {number|string} chatId
+     * @param {string} matchQuery - FTS5 expression from `buildMatchQuery`.
+     * @returns {number}
+     */
+    countChatMessages(chatId, matchQuery) {
+        if (!chatId || !matchQuery) return 0;
+        return this.countChatMessagesStmt.get(matchQuery, chatId).total;
     }
 
     /** @param {string} chat_name @returns {boolean} */

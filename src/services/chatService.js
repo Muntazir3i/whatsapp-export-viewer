@@ -60,13 +60,20 @@ export class chatServices {
      *
      * @param {number|string} chat_id
      * @param {string} rawQuery - Text as typed by the user.
-     * @param {number|string} [limit] - Maximum results (1-100).
-     * @returns {Array<{ id: number, sender: string|null, timestamp: string, rank: number, snippet: string }>}
+     * @param {number|string} [limit] - Maximum results per page (1-100).
+     * @param {number|string|null} [beforeId] - Cursor: only matches older than this ID.
+     * @returns {{ results: Array<{ id: number, sender: string|null, timestamp: string, snippet: string }>, total: number|null }}
      */
-    searchMessages(chat_id, rawQuery, limit = 50) {
+    searchMessages(chat_id, rawQuery, limit = 50, beforeId = null) {
         const matchQuery = buildMatchQuery(rawQuery);
-        if (!matchQuery) return [];
-        return this.chatRepository.searchChatMessages(chat_id, matchQuery, limit);
+        if (!matchQuery) return { results: [], total: 0 };
+
+        return {
+            results: this.chatRepository.searchChatMessages(chat_id, matchQuery, limit, beforeId),
+            // Counting every match is only needed for the first page; the client
+            // keeps the total across "show more" requests.
+            total: beforeId ? null : this.chatRepository.countChatMessages(chat_id, matchQuery),
+        };
     }
 
     /**
