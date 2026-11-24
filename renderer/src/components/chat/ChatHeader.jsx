@@ -7,9 +7,17 @@
  * @param {Object} props.selectedChat - Details of current selected chat.
  * @param {string|null} [props.currentUser] - Name of currently selected active participant.
  * @param {Function} [props.onOpenInfo] - Opens the chat info panel when the header profile is clicked.
+ * @param {boolean} [props.searchOpen] - Whether the in-chat search panel is open.
+ * @param {Function} [props.onToggleSearch] - Opens or closes the in-chat search panel.
  * @returns {JSX.Element}
  */
-export const ChatHeader = ({ selectedChat, currentUser, onOpenInfo }) => {
+export const ChatHeader = ({
+  selectedChat,
+  currentUser,
+  onOpenInfo,
+  searchOpen = false,
+  onToggleSearch,
+}) => {
   const chatName = selectedChat?.name || 'Chat';
   const initialLetter = chatName.charAt(0).toUpperCase();
 
@@ -42,7 +50,13 @@ export const ChatHeader = ({ selectedChat, currentUser, onOpenInfo }) => {
       <div className="flex items-center gap-1 text-[#aebac1] flex-shrink-0">
         <button
           type="button"
-          className="p-2 rounded-full hover:bg-white/5 hover:text-[#e9edef] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb]"
+          onClick={onToggleSearch}
+          aria-pressed={searchOpen}
+          className={`p-2 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb] ${
+            searchOpen
+              ? 'bg-white/10 text-[#e9edef]'
+              : 'hover:bg-white/5 hover:text-[#e9edef]'
+          }`}
           title="Search in chat"
           aria-label="Search in chat"
         >

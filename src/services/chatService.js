@@ -4,6 +4,8 @@
  * over `chatRepository`; see that module for query and pagination semantics.
  */
 
+import { buildMatchQuery } from "../parser/searchQuery.js";
+
 export class chatServices {
 
     /**
@@ -50,6 +52,33 @@ export class chatServices {
     /** @see loadMessages */
     loadMoreMessages(chat_id, cursorId) {
         return this.loadMessages(chat_id, cursorId);
+    }
+
+    /**
+     * In-chat full-text search. Parses the raw search box text into an FTS5
+     * expression, so callers never pass unparsed input to `MATCH`.
+     *
+     * @param {number|string} chat_id
+     * @param {string} rawQuery - Text as typed by the user.
+     * @param {number|string} [limit] - Maximum results (1-100).
+     * @returns {Array<{ id: number, sender: string|null, timestamp: string, rank: number, snippet: string }>}
+     */
+    searchMessages(chat_id, rawQuery, limit = 50) {
+        const matchQuery = buildMatchQuery(rawQuery);
+        if (!matchQuery) return [];
+        return this.chatRepository.searchChatMessages(chat_id, matchQuery, limit);
+    }
+
+    /**
+     * Messages surrounding a search hit, ending at that message.
+     *
+     * @param {number|string} chat_id
+     * @param {number|string} messageId
+     * @param {number|string} [limit]
+     * @returns {Array<Object>}
+     */
+    getMessageWindow(chat_id, messageId, limit = 100) {
+        return this.chatRepository.findMessageWindow(chat_id, messageId, limit);
     }
 
     /**

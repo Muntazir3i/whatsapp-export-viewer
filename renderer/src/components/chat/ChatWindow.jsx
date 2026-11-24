@@ -20,7 +20,16 @@ export const ChatWindow = ({ selectedChat }) => {
   const selectedChatId = selectedChat?.id;
 
   // Fetch messages from database for selected chat
-  const { messages = [], loading, error, loadMore, hasMore } = useMessages(selectedChatId);
+  const {
+    messages = [],
+    loading,
+    error,
+    loadMore,
+    hasMore,
+    focusMessageId,
+    jumpToMessage,
+    jumpToLatest,
+  } = useMessages(selectedChatId);
 
 
   // Active user selection for outgoing/incoming bubble assignment
@@ -114,6 +123,9 @@ export const ChatWindow = ({ selectedChat }) => {
       hasMore = {hasMore}
       isOutgoingMessage={isOutgoingMessage}
       messagesEndRef={messagesEndRef}
+      focusMessageId={focusMessageId}
+      jumpToMessage={jumpToMessage}
+      jumpToLatest={jumpToLatest}
     />
   );
 };

@@ -51,6 +51,36 @@ export function registerChatHandlers(chatService, userDataPath) {
     });
 
     /**
+     * Handler for in-chat full-text search. The raw query is parsed and quoted in
+     * the service layer, and any FTS error is contained here so it never reaches
+     * the renderer as a rejected promise.
+     * IPC Channel: "search-messages"
+     * @param {Object} _ - IPC event (unused).
+     * @param {number|string} chatId - Target chat ID.
+     * @param {string} rawQuery - Text typed into the search box.
+     * @param {number|string} [limit] - Maximum results (1-100).
+     */
+    ipcMain.handle("search-messages", (_, chatId, rawQuery, limit) => {
+        try {
+            return chatService.searchMessages(chatId, rawQuery, limit);
+        } catch (error) {
+            console.error("[search-messages]", error);
+            return [];
+        }
+    });
+
+    /**
+     * Handler for the message window surrounding a search hit.
+     * IPC Channel: "get-message-window"
+     * @param {Object} _ - IPC event (unused).
+     * @param {number|string} chatId - Target chat ID.
+     * @param {number|string} messageId - Message to end the window at.
+     */
+    ipcMain.handle("get-message-window", (_, chatId, messageId) => {
+        return chatService.getMessageWindow(chatId, messageId);
+    });
+
+    /**
      * Handler for aggregate chat counters used by the chat info panel.
      * IPC Channel: "get-chat-stats"
      * @param {Object} _ - IPC event (unused).

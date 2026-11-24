@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChatHeader } from './ChatHeader.jsx';
+import { ChatSearch } from './ChatSearch.jsx';
 import { ReadOnlyInput } from './ReadOnlyInput.jsx';
 import { LoadMoreButton } from './LoadMoreButton.jsx';
 import { ChatMessage } from './ChatMessage.jsx';
@@ -38,6 +39,9 @@ function formatDateLabel(datePart) {
  * @param {boolean} props.hasMore - Boolean flag indicating if more historical messages exist.
  * @param {Function} props.isOutgoingMessage - Function checking if message is outgoing.
  * @param {React.RefObject} props.messagesEndRef - Ref DOM target for auto-scrolling on initial render.
+ * @param {number|null} [props.focusMessageId] - Message targeted by a search jump.
+ * @param {Function} [props.jumpToMessage] - Loads the window ending at a search hit.
+ * @param {Function} [props.jumpToLatest] - Restores the newest page of messages.
  * @returns {JSX.Element}
  */
 export const ChatView = ({
@@ -48,6 +52,9 @@ export const ChatView = ({
   hasMore,
   isOutgoingMessage,
   messagesEndRef,
+  focusMessageId = null,
+  jumpToMessage,
+  jumpToLatest,
 }) => {
   // PAGINATION STATE: Stores container scrollHeight prior to fetching older messages
   const [oldScrollHeight, setOldScrollHeight] = useState(0);
@@ -55,11 +62,15 @@ export const ChatView = ({
   // Whether the chat info panel is open instead of the message list.
   const [showInfo, setShowInfo] = useState(false);
 
-  // Reset the info panel synchronously when switching conversations.
+  // Whether the in-chat search panel replaces the message list.
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // Reset the info and search panels synchronously when switching conversations.
   const [prevChatId, setPrevChatId] = useState(selectedChat?.id);
   if (selectedChat?.id !== prevChatId) {
     setPrevChatId(selectedChat?.id);
     setShowInfo(false);
+    setSearchOpen(false);
   }
 
   // PAGINATION STATE: Tracks whether older messages are currently being fetched
@@ -116,6 +127,32 @@ export const ChatView = ({
   }, [messages]);
 
   /**
+   * SEARCH JUMP:
+   * Disable bottom pinning and center the target bubble. Media loading below the
+   * target must not drag the viewport away from the search hit.
+   */
+  useEffect(() => {
+    if (!focusMessageId) return;
+
+    isPinnedToBottom.current = false;
+
+    const container = scrollDivContainer.current;
+    const target = container?.querySelector(`[data-message-id="${focusMessageId}"]`);
+    target?.scrollIntoView({ block: 'center' });
+  }, [focusMessageId]);
+
+  /**
+   * BACK TO LATEST:
+   * Once the highlight is cleared, re-pin the viewport to the newest message.
+   */
+  useEffect(() => {
+    if (focusMessageId || !isPinnedToBottom.current) return;
+
+    const container = scrollDivContainer.current;
+    if (container) container.scrollTop = container.scrollHeight;
+  }, [focusMessageId, messages]);
+
+  /**
    * PAGINATION SCROLL LISTENER:
    * Triggers when the user scrolls the message container.
    * Checks if `scrollTop === 0` (top of scroll container reached). If so, saves the current `scrollHeight`,
@@ -146,6 +183,21 @@ export const ChatView = ({
     loadMore(selectedChat.id);
   };
 
+  /**
+   * SEARCH RESULT SELECTION:
+   * Close the search panel and load the window of messages ending at the hit.
+   */
+  const handleSearchSelect = (messageId) => {
+    setSearchOpen(false);
+    jumpToMessage?.(messageId);
+  };
+
+  /** Re-pins the viewport to the newest message and clears the search highlight. */
+  const handleBackToLatest = () => {
+    isPinnedToBottom.current = true;
+    jumpToLatest?.();
+  };
+
   return (
     <div className="w-full sm:ml-[340px] md:ml-[clamp(340px,30%,420px)] h-screen flex flex-col bg-[#0b141a] overflow-hidden">
       {/* Top sticky chat header */}
@@ -153,6 +205,8 @@ export const ChatView = ({
         selectedChat={selectedChat}
         currentUser={currentUser}
         onOpenInfo={() => setShowInfo(true)}
+        searchOpen={searchOpen}
+        onToggleSearch={() => setSearchOpen((open) => !open)}
       />
 
       {/* Chat info replaces the message list while open */}
@@ -164,7 +218,17 @@ export const ChatView = ({
         />
       )}
 
-      {!showInfo && (
+      {/* Search replaces the message list while open */}
+      {!showInfo && searchOpen && (
+        <ChatSearch
+          key={selectedChat?.id}
+          chatId={selectedChat?.id}
+          onSelect={handleSearchSelect}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
+
+      {!showInfo && !searchOpen && (
       <>
       {/* Scrollable messages container with overflow protection against horizontal scrolling */}
       <div
@@ -203,6 +267,7 @@ export const ChatView = ({
             showDateDivider={showDateDivider}
             dateLabel={formatDateLabel(currentDate)}
             isFirstInGroup={isFirstInGroup}
+            isHighlighted={msg.id === focusMessageId}
           />);
         })}
 
@@ -210,6 +275,19 @@ export const ChatView = ({
         <div ref={messagesEndRef} />
         </div>
       </div>
+
+      {/* Jumped to a search result: offer a way back to the newest messages */}
+      {focusMessageId && (
+        <div className="flex justify-center bg-[#111b21] py-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={handleBackToLatest}
+            className="rounded-full bg-[#202c33] px-4 py-1.5 text-[13px] text-[#e9edef] shadow-sm transition-colors hover:bg-[#2a3942] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb]"
+          >
+            Back to latest
+          </button>
+        </div>
+      )}
 
       {/* Bottom read-only input indicator */}
       <ReadOnlyInput />

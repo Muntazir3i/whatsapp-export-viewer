@@ -4,6 +4,20 @@
  * Query and pagination semantics are defined here; upper layers are thin pass-throughs.
  */
 
+/**
+ * Normalizes a caller-supplied row limit.
+ *
+ * @param {number|string|null|undefined} limit - Requested row count.
+ * @param {number} fallback - Value used when the input is not a finite number.
+ * @param {number} max - Inclusive upper bound.
+ * @returns {number} Integer between 1 and `max`.
+ */
+function clampLimit(limit, fallback, max) {
+    const requested = Number(limit ?? fallback);
+    if (!Number.isFinite(requested)) return fallback;
+    return Math.min(Math.max(Math.trunc(requested), 1), max);
+}
+
 export class chatRepository {
     /**
      * @param {import('better-sqlite3').Database} db
@@ -75,19 +89,33 @@ export class chatRepository {
             ORDER BY id ASC;
         `);
 
-      this.searchChatMessagesStmt = this.db.prepare(`SELECT
-        m.id,
-        m.sender,
-        m.timestamp,
-        bm25(messages_fts) AS rank,
-        snippet(messages_fts, 0, char(1), char(2), '…', 12) AS snippet
-      FROM messages_fts
-      JOIN messages m ON m.id = messages_fts.rowid
-      WHERE messages_fts MATCH ?
-        AND m.chat_id = ?
-        AND m.type IN ('text', 'link')
-      ORDER BY rank
-      LIMIT ?;`);
+        // Up to 100 messages ending at a given id, oldest-first, for search jumps.
+        this.messageWindowStmt = this.db.prepare(`
+            SELECT * FROM (
+                SELECT * FROM messages
+                WHERE chat_id = ? AND id <= ?
+                ORDER BY id DESC
+                LIMIT ?
+            ) AS subquery
+            ORDER BY id ASC;
+        `);
+
+        // In-chat search: rank with bm25 and return highlighted snippets.
+        this.searchChatMessagesStmt = this.db.prepare(`
+            SELECT
+                m.id,
+                m.sender,
+                m.timestamp,
+                bm25(messages_fts) AS rank,
+                snippet(messages_fts, 0, char(1), char(2), '…', 12) AS snippet
+            FROM messages_fts
+            JOIN messages m ON m.id = messages_fts.rowid
+            WHERE messages_fts MATCH ?
+                AND m.chat_id = ?
+                AND m.type IN ('text', 'link')
+            ORDER BY rank, m.id DESC
+            LIMIT ?;
+        `);
 
         this.checkChatExistStmt = this.db.prepare(`
             SELECT 1 
@@ -167,13 +195,38 @@ export class chatRepository {
         return this.loadMoreMessagesStmt.all(chat_id, cursorId);
     }
 
+    /**
+     * Up to `limit` messages ending at `messageId`, oldest-first. Used when jumping
+     * to a search result so the target arrives with surrounding context.
+     *
+     * @param {number|string} chat_id
+     * @param {number|string} messageId
+     * @param {number|string} [limit]
+     * @returns {Array<Object>}
+     */
+    findMessageWindow(chat_id, messageId, limit = 100) {
+        return this.messageWindowStmt.all(
+            chat_id,
+            messageId,
+            clampLimit(limit, 100, 200)
+        );
+    }
+
+    /**
+     * Searches one chat's text and link messages.
+     *
+     * @param {number|string} chatId
+     * @param {string} matchQuery - FTS5 expression from `buildMatchQuery`.
+     * @param {number|string} [limit] - Requested result count (1-100).
+     * @returns {Array<{ id: number, sender: string|null, timestamp: string, rank: number, snippet: string }>}
+     */
     searchChatMessages(chatId, matchQuery, limit = 50) {
         if (!chatId || !matchQuery) return [];
-        const n = Number(limit ?? 50);
-        const safeLimit = Number.isFinite(n)
-            ? Math.min(Math.max(Math.trunc(n), 1), 100)
-            : 50;
-        return this.searchChatMessagesStmt.all(matchQuery, chatId, safeLimit);
+        return this.searchChatMessagesStmt.all(
+            matchQuery,
+            chatId,
+            clampLimit(limit, 50, 100)
+        );
     }
 
     /** @param {string} chat_name @returns {boolean} */

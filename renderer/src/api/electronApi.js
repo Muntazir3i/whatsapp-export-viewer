@@ -108,6 +108,35 @@ export function loadMoreMessages(chatId, cursorId) {
 }
 
 /**
+ * Searches the text of one chat through SQLite FTS5.
+ * @param {string|number} chatId - The chat to search in.
+ * @param {string} rawQuery - Text typed into the search box.
+ * @param {number} [limit] - Maximum results (1-100).
+ * @returns {Promise<Array<{ id: number, sender: string|null, timestamp: string, snippet: string }>>}
+ */
+export function searchMessages(chatId, rawQuery, limit) {
+  if (!window.api?.searchMessages) {
+    console.warn('[electronApi] window.api.searchMessages is unavailable.');
+    return Promise.resolve([]);
+  }
+  return window.api.searchMessages(chatId, rawQuery, limit);
+}
+
+/**
+ * Loads the messages surrounding a search hit, ending at that message.
+ * @param {string|number} chatId
+ * @param {string|number} messageId
+ * @returns {Promise<Array<Object>>}
+ */
+export function getMessageWindow(chatId, messageId) {
+  if (!window.api?.getMessageWindow) {
+    console.warn('[electronApi] window.api.getMessageWindow is unavailable.');
+    return Promise.resolve([]);
+  }
+  return window.api.getMessageWindow(chatId, messageId);
+}
+
+/**
  * Opens a stored attachment with the OS default application via IPC.
  * @param {string} storedPath - Path from `messages.message`.
  * @returns {Promise<{ success: boolean, error?: string }>}

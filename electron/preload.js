@@ -57,6 +57,25 @@ contextBridge.exposeInMainWorld("api", {
     loadMoreMessages: (chatId, cursorId) => ipcRenderer.invoke("load-messages", chatId, cursorId),
 
     /**
+     * Searches the text of one chat using SQLite FTS5.
+     * @param {number|string} chatId - Target chat unique identifier.
+     * @param {string} rawQuery - Text typed into the search box.
+     * @param {number|string} [limit] - Maximum results (1-100).
+     * @returns {Promise<Array<{ id: number, sender: string|null, timestamp: string, snippet: string }>>}
+     */
+    searchMessages: (chatId, rawQuery, limit) =>
+        ipcRenderer.invoke("search-messages", chatId, rawQuery, limit),
+
+    /**
+     * Loads the messages surrounding a search hit, ending at that message.
+     * @param {number|string} chatId - Target chat unique identifier.
+     * @param {number|string} messageId - Message to end the window at.
+     * @returns {Promise<Array<Object>>} Message records.
+     */
+    getMessageWindow: (chatId, messageId) =>
+        ipcRenderer.invoke("get-message-window", chatId, messageId),
+
+    /**
      * Opens a stored attachment with the OS default application.
      * @param {string} storedPath - Imports-relative or absolute path from `messages.message`.
      * @returns {Promise<{ success: boolean, error?: string }>}
