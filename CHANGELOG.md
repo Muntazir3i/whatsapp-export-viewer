@@ -2,9 +2,16 @@
 
 All notable changes to this project are documented here.
 
-## [1.2.0] - 2026-11-21
+## [1.2.0] - 2026-11-24
 
 ### Added
+- In-chat full-text search backed by SQLite FTS5: highlighted snippets, match counts,
+  arrow navigation between hits, and jump-to-message.
+- Chat info panel with total message counts and browsable Images, Audio, Documents, and
+  Links categories.
+- Attachments can be opened with the OS default application from inline cards and the
+  chat info panel.
+- Links in message text open in the system browser instead of an Electron window.
 - iOS WhatsApp exports are supported alongside Android, for both `WhatsApp Chat - <contact>.zip`
   archives and a directly selected `_chat.txt` file.
 - iOS attachment notation (`<attached: file>`), edited-message markers, quoted replies with
@@ -16,6 +23,9 @@ All notable changes to this project are documented here.
 - Parser tests for Android and iOS line formats, flavor detection, and attachment classification.
 
 ### Changed
+- Message text is indexed in `messages_fts` through SQLite triggers; in-chat search
+  queries that index for highlighted snippets.
+- A `(chat_id, id)` index supports message pagination and search jumps.
 - Message-start detection is structural and accepts locale date separators (`25/04/22`,
   `25.04.22`, `25-04-22`) and two- or four-digit years on both platforms.
 - Flavor detection reads the first non-empty line and checks the iOS bracket syntax first, so
@@ -32,6 +42,23 @@ All notable changes to this project are documented here.
   a chat row is created, instead of leaving an empty chat that blocks retries as a duplicate.
 - Edited iOS messages no longer keep a trailing `U+200E` after the marker is removed.
 - Attachment filenames are reduced to their basename before path resolution.
+
+### Security
+- ZIP extraction now rejects symlink entries, absolute paths, and `..` traversal before
+  writing, preventing a malicious archive from writing outside `<userData>/imports`.
+- Replaced `extract-zip` with `yauzl`; `extract-zip` has no fix for its symlink
+  path-traversal advisory.
+
+### Known limitations
+- In-chat search is not backfilled for chats imported before v1.2.0. Existing chats
+  still render normally, but only messages indexed in v1.2.0 or later are searchable
+  until the chat is re-imported.
+- Databases created by v1.0.0 predate the attachment columns and are not migrated;
+  reset the database or re-import chats.
+- Search is scoped to the open chat; there is no cross-chat search yet.
+- Audio waveforms are synthetic, not decoded from the audio.
+- Animated `.webp` stickers render as static images.
+- Export keywords remain English-only.
 
 ## [1.1.0] - 2026-10-27
 

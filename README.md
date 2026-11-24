@@ -88,11 +88,13 @@ WhatsApp allows users to export individual and group chat logs as plain `.txt` f
 - **Fullscreen Lightbox**: Clicking an image, video, or sticker opens a portal-based viewer that closes on backdrop click, the close button, or `Escape`.
 - **Voice Note Player**: Audio attachments render as a WhatsApp-style player with play/pause, a seekable waveform, remaining time, keyboard seeking (←/→ ±5 s), and cycling playback speed (1x → 1.5x → 2x).
 - **Sticker Rendering**: `.webp` attachments are classified as stickers and drawn without a chat bubble, mirroring the WhatsApp client.
-- **Document & Attachment Cards**: Documents and other files render as cards with an icon and file name; unknown types fall back to a generic attachment card.
+- **Document & Attachment Cards**: Documents and other files render as cards with an icon and file name; clicking a card opens it with the OS default application. Unknown types fall back to a generic attachment card.
 - **Secure Media Streaming**: Attachments are served through a privileged `media://` protocol instead of `file://`. Stored paths are resolved relative to `<userData>/imports`, and any path that escapes that directory is rejected.
 
 ### Navigation, Search, and Pagination
 - **Real-Time Sidebar Search**: Filters chat sessions dynamically by contact name or message preview text.
+- **In-Chat Full-Text Search**: SQLite FTS5 search over the open chat, with highlighted snippets, match counts, arrow navigation between hits, and jump-to-message. Results load in pages.
+- **Chat Info Panel**: Opens from the chat header and shows total message counts plus browsable Images, Audio, Documents, and Links categories.
 - **Cursor-Based Infinite Pagination**: Efficiently queries messages in chunks of 100 using SQL cursor thresholds (`id < cursorId`).
 - **Scroll Anchor Preservation**: Prepending older messages preserves the viewport's relative scroll offset without sudden visual jumping.
 - **Chat Management**: Right-click context menu on sidebar items with a delete confirmation dialog that removes the chat record, cascades message deletions, and cleans up extracted import files on disk.
@@ -115,7 +117,10 @@ The project is structured according to Electron's security best practices, stric
                                   |
                       IPC Channels (invoke / handle)
                       [ get-chats, get-messages, load-messages,
-                        import-chat, import-chat-with-name, delete-chat ]
+                        load-newer-messages, get-message-window,
+                        search-messages, import-chat, import-chat-with-name,
+                        delete-chat, open-attachment, get-chat-stats,
+                        get-category-messages ]
                       [ import-progress  (main -> renderer) ]
                       media:// protocol  (streamed attachments)
                                   |
@@ -129,15 +134,16 @@ The project is structured according to Electron's security best practices, stric
 |                                                                   |
 |   [Sidebar Views]       [Chat Window]        [State & Hooks]      |
 |   - Search Filter       - Message Bubbles    - useChats()         |
-|   - Context Menu        - Participant Choice - useMessages()      |
-|   - Delete Modal        - Infinite Scroll    - Custom Dialogs     |
+|   - Context Menu        - In-Chat Search     - useMessages()      |
+|   - Delete Modal        - Chat Info Panel    - useChatSearch()    |
 +-------------------------------------------------------------------+
 ```
 
 1. **Main Process (`electron/main.js`)**: Manages the application lifecycle, initializes the SQLite database (in `app.getPath("userData")` for both development and production), registers IPC handlers, and serves extracted attachments through a privileged `media://` protocol.
 2. **Preload Script (`electron/preload.js`)**: Securely exposes safe, typed wrapper methods on `window.api` with `contextIsolation: true` and `nodeIntegration: false`.
-3. **ETL Pipeline (`src/`)**: Decoupled Node.js modules responsible for extracting zip archives, streaming file contents, identifying message start boundaries, and persisting data.
+3. **ETL Pipeline (`src/`)**: Decoupled Node.js modules responsible for validating and extracting zip archives, streaming file contents, identifying message start boundaries, and persisting data.
 4. **Renderer Process (`renderer/`)**: A Single Page Application constructed with React 19 and Tailwind CSS v4, compiled using Vite.
+5. **Archive Safety**: ZIP entries are checked before extraction. Symlink entries, absolute paths, and `..` traversal are rejected, and each destination's parent is re-resolved with `realpath` before writing, so an archive cannot write outside `<userData>/imports`.
 
 ---
 
@@ -150,7 +156,7 @@ The project is structured according to Electron's security best practices, stric
 | **Styling** | Tailwind CSS | ^4.3.3 | Modern styling engine with Vite integration plugin |
 | **Bundler** | Vite | ^8.2.0 | Fast development server and production static bundling |
 | **Local Database** | better-sqlite3 | ^13.0.1 | Synchronous, high-performance SQLite3 binding for Node.js |
-| **Archive Handling** | extract-zip | ^2.0.1 | Decompression of WhatsApp `.zip` export archives |
+| **Archive Handling** | yauzl | ^2.10.0 | Safe, entry-by-entry ZIP extraction with symlink and traversal checks |
 | **Packaging** | electron-builder | ^26.15.3 | Executable packaging for macOS, Windows, and Linux |
 
 ---
@@ -217,27 +223,23 @@ whatsapp-export-viewer/
 
 The following features represent missing capabilities that are targeted for future development:
 
-### 1. Search Within Conversations
-- **Current Limitation**: Search is currently limited to filtering chats in the sidebar.
-- **Roadmap Goal**: Implement an in-chat search bar allowing full-text search across messages within the selected conversation, featuring term highlighting, match counts, and jump-to-message navigation.
+### 1. Global Search Across Chats
+- **Current Limitation**: In-chat search uses SQLite FTS5, but there is no cross-chat search UI yet.
+- **Roadmap Goal**: Add a global search across all imported chats, with the same highlighting and jump-to-message behavior.
 
-### 2. Global Full-Text Search (SQLite FTS5)
-- **Current Limitation**: No capability to search across all imported conversations simultaneously.
-- **Roadmap Goal**: Integrate SQLite FTS5 (Full-Text Search) virtual tables to enable instant keyword search spanning all imported chat databases.
-
-### 3. Multi-File Chat Merging
+### 2. Multi-File Chat Merging
 - **Current Limitation**: Exporting the same chat at different times creates duplicate or separate entries.
 - **Roadmap Goal**: Provide an intelligent deduplication merge tool that combines multiple chronological exports of the same chat into a unified timeline without duplicate messages.
 
-### 4. Message Bookmarking and Starred Messages
+### 3. Message Bookmarking and Starred Messages
 - **Current Limitation**: No mechanism to bookmark specific messages.
 - **Roadmap Goal**: Allow users to "star" critical messages and browse starred items from a dedicated sidebar tab.
 
-### 5. Decoded Audio Waveforms
+### 4. Decoded Audio Waveforms
 - **Current Limitation**: The voice-note player draws a deterministic pseudo-waveform derived from the media path, not the actual decoded audio.
 - **Roadmap Goal**: Decode audio and render a real amplitude waveform, with played/unplayed regions matching the true audio.
 
-### 6. Animated Sticker Playback
+### 5. Animated Sticker Playback
 - **Current Limitation**: Stickers are rendered as static images; animated `.webp` stickers do not play.
 - **Roadmap Goal**: Support animated sticker playback, including the loop and transparency behavior of the WhatsApp client.
 
@@ -283,7 +285,7 @@ npm run dev
 ```
 
 This script:
-1. Starts the Vite development server for the React frontend on `http://localhost:5174`.
+1. Starts the Vite development server for the React frontend on `http://localhost:5173`.
 2. Uses `wait-on` to verify the development server is active.
 3. Launches Electron with `ELECTRON_DEV=true`, loading the live URL with Hot Module Replacement (HMR) and automatically opening the Chromium DevTools.
 
@@ -336,6 +338,10 @@ The application initializes a SQLite database (`chats.db`).
 | `type` | `TEXT` | `NOT NULL` | Message classification (`text`, `media`, `deleted`, `system`, `file`) |
 | `extension` | `TEXT` | | Normalized lowercase attachment extension (e.g., `.pdf`), or `NULL` |
 | `category` | `TEXT` | | Attachment category (`image`, `sticker`, `video`, `audio`, `document`, `archive`), or `NULL` |
+
+#### `messages_fts`
+
+FTS5 external-content table over `messages.message`, kept in sync by SQLite triggers on insert, update, and delete. In-chat search queries it with `MATCH`; the `(chat_id, id)` index on `messages` supports pagination and jump windows.
 
 ### Media Storage
 
@@ -401,7 +407,16 @@ When a chat is deleted via the context menu, this folder and all associated reco
 WhatsApp writes that placeholder when the export was created **without media**. The files were never included in the archive, so there is nothing to render. Re-export the chat with media included to view those attachments.
 
 #### How are attachments displayed?
-Images and videos render inline and open in a fullscreen lightbox. Audio notes use the built-in waveform player, stickers (`.webp`) render without a bubble, and documents or unknown file types render as attachment cards. Files are streamed through the `media://` protocol from `<userData>/imports/<ChatName>/`; paths outside that directory are rejected.
+Images and videos render inline and open in a fullscreen lightbox. Audio notes use the built-in waveform player, stickers (`.webp`) render without a bubble, and documents or unknown file types render as attachment cards. Clicking a document card (or an item in the chat info panel) opens it with the OS default application. Files are streamed through the `media://` protocol from `<userData>/imports/<ChatName>/`; paths outside that directory are rejected.
+
+#### How do I search within a chat?
+Open a chat and click the search icon in the header. Search uses SQLite FTS5 over the open chat, shows highlighted snippets and a match count, and lets you jump between hits with the arrow controls. Search is per-chat; there is no global search yet.
+
+#### Why does in-chat search miss older messages?
+The FTS5 index starts with v1.2.0. Chats imported earlier are not backfilled, so only messages indexed in v1.2.0 or later are searchable until the chat is re-imported. Existing messages still render normally.
+
+#### Why does the app fail to start after upgrading from v1.0.0?
+v1.0.0 databases predate the attachment columns and are not migrated yet. Back up `chats.db` from the userData directory, remove or rename it, then re-import your chats.
 
 ---
 
