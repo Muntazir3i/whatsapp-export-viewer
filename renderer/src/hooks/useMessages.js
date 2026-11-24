@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { getMessages, loadMessages, getMessageWindow } from "../api/electronApi.js";
+import {
+  getMessages,
+  loadMessages,
+  getMessageWindow,
+  loadNewerMessages,
+} from "../api/electronApi.js";
 
 /** Messages loaded per page, matching the repository window size. */
 const PAGE_SIZE = 100;
@@ -20,6 +25,9 @@ const PAGE_SIZE = 100;
  *   error: Error|null,
  *   loadMore: Function,
  *   hasMore: boolean,
+ *   loadNewer: Function,
+ *   hasNewer: boolean,
+ *   loadingNewer: boolean,
  *   focusMessageId: number|null,
  *   jumpToMessage: Function,
  *   jumpToLatest: Function
@@ -30,6 +38,10 @@ export function useMessages(chatId) {
   const [error, setError] = useState(null);
   const [fetchedChatId, setFetchedChatId] = useState(null);
   const [hasMore, setHasMore] = useState(false);
+
+  // Only true after a search jump that did not reach the newest message.
+  const [hasNewer, setHasNewer] = useState(false);
+  const [loadingNewer, setLoadingNewer] = useState(false);
 
   // Search jump target, tagged with the chat it belongs to so switching chats
   // clears the highlight without resetting state inside an effect.
@@ -62,6 +74,7 @@ export function useMessages(chatId) {
           setMessages(result || []);
           setError(null);
           setFetchedChatId(chatId);
+          setHasNewer(false);
         }
       })
       .catch((err) => {
@@ -96,7 +109,7 @@ export function useMessages(chatId) {
   }
 
   /**
-   * Loads the window of messages ending at a search hit and marks it for highlighting.
+   * Loads a window centered on a search hit, the target, and its neighbours.
    *
    * @param {string|number} messageId - Target message ID from a search result.
    */
@@ -104,13 +117,14 @@ export function useMessages(chatId) {
     if (!chatId || !messageId) return;
 
     getMessageWindow(chatId, messageId)
-      .then((result) => {
+      .then((payload) => {
         if (chatIdRef.current !== chatId) return;
 
-        const rows = result || [];
+        const rows = payload?.messages ?? [];
 
         setMessages(rows);
-        setHasMore(rows.length >= PAGE_SIZE);
+        setHasMore(Boolean(payload?.hasOlder));
+        setHasNewer(Boolean(payload?.hasNewer));
         setError(null);
         setFetchedChatId(chatId);
         setFocus({ chatId, messageId: Number(messageId) });
@@ -125,6 +139,7 @@ export function useMessages(chatId) {
     if (!chatId) return;
 
     setFocus({ chatId, messageId: null });
+    setHasNewer(false);
 
     getMessages(chatId)
       .then((result) => {
@@ -141,12 +156,45 @@ export function useMessages(chatId) {
       });
   };
 
+  /**
+   * Appends the next batch of messages below a search jump, until the newest
+   * message is reached.
+   */
+  const loadNewer = () => {
+    const lastId = messages[messages.length - 1]?.id;
+    if (!chatId || !lastId || loadingNewer) return;
+
+    setLoadingNewer(true);
+
+    loadNewerMessages(chatId, lastId)
+      .then((rows) => {
+        if (chatIdRef.current !== chatId) return;
+
+        setMessages((previous) => {
+          // Ignore a batch that no longer follows the visible list.
+          if (previous[previous.length - 1]?.id !== lastId) return previous;
+          return [...previous, ...rows];
+        });
+
+        setHasNewer((rows?.length ?? 0) >= PAGE_SIZE);
+      })
+      .catch((err) => {
+        console.error(err);
+      })
+      .finally(() => {
+        setLoadingNewer(false);
+      });
+  };
+
   return {
     messages: chatId ? messages : [],
     loading,
     error: chatId ? error : null,
     loadMore: loadMore,
     hasMore: hasMore,
+    loadNewer,
+    hasNewer,
+    loadingNewer,
     focusMessageId,
     jumpToMessage,
     jumpToLatest,

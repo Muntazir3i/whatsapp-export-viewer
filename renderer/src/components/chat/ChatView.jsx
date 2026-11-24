@@ -38,6 +38,9 @@ function formatDateLabel(datePart) {
  * @param {Array<Object>} props.messages - Chronological array of message items.
  * @param {Function} props.loadMore - Callback function to fetch older messages from backend SQLite DB.
  * @param {boolean} props.hasMore - Boolean flag indicating if more historical messages exist.
+ * @param {Function} [props.loadNewer] - Fetches messages newer than the current list (after a search jump).
+ * @param {boolean} [props.hasNewer] - Whether newer messages exist below the loaded window.
+ * @param {boolean} [props.loadingNewer] - Whether a newer page is in flight.
  * @param {Function} props.isOutgoingMessage - Function checking if message is outgoing.
  * @param {React.RefObject} props.messagesEndRef - Ref DOM target for auto-scrolling on initial render.
  * @param {number|null} [props.focusMessageId] - Message targeted by a search jump.
@@ -51,6 +54,9 @@ export const ChatView = ({
   messages,
   loadMore,
   hasMore,
+  loadNewer,
+  hasNewer = false,
+  loadingNewer = false,
   isOutgoingMessage,
   messagesEndRef,
   focusMessageId = null,
@@ -169,15 +175,22 @@ export const ChatView = ({
    */
   const handleScroll = (event) => {
     const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+    const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
 
     // Stay pinned only while the user is within ~80px of the newest message.
-    isPinnedToBottom.current = scrollHeight - (scrollTop + clientHeight) < 80;
+    isPinnedToBottom.current = distanceFromBottom < 80;
 
     // Detect scroll top boundary
     if (scrollTop === 0 && hasMore && !isLoadingMore) {
       setOldScrollHeight(scrollHeight);
       setIsLoadingMore(true);
       loadMore(selectedChat.id);
+    }
+
+    // After a search jump, continue towards the newest messages when the user
+    // reaches the bottom of the loaded window.
+    if (distanceFromBottom < 120 && hasNewer && !loadingNewer) {
+      loadNewer?.();
     }
   };
 

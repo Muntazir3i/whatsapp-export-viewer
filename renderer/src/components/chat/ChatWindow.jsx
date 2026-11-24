@@ -26,6 +26,9 @@ export const ChatWindow = ({ selectedChat }) => {
     error,
     loadMore,
     hasMore,
+    loadNewer,
+    hasNewer,
+    loadingNewer,
     focusMessageId,
     jumpToMessage,
     jumpToLatest,
@@ -121,6 +124,9 @@ export const ChatWindow = ({ selectedChat }) => {
       messages = {messages}
       loadMore = {loadMore}
       hasMore = {hasMore}
+      loadNewer={loadNewer}
+      hasNewer={hasNewer}
+      loadingNewer={loadingNewer}
       isOutgoingMessage={isOutgoingMessage}
       messagesEndRef={messagesEndRef}
       focusMessageId={focusMessageId}

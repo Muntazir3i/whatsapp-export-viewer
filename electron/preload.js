@@ -77,6 +77,15 @@ contextBridge.exposeInMainWorld("api", {
         ipcRenderer.invoke("get-message-window", chatId, messageId),
 
     /**
+     * Loads messages newer than a cursor, to continue past a search jump.
+     * @param {number|string} chatId - Target chat unique identifier.
+     * @param {number|string} cursorId - Last loaded message ID.
+     * @returns {Promise<Array<Object>>} Newer message records.
+     */
+    loadNewerMessages: (chatId, cursorId) =>
+        ipcRenderer.invoke("load-newer-messages", chatId, cursorId),
+
+    /**
      * Opens a stored attachment with the OS default application.
      * @param {string} storedPath - Imports-relative or absolute path from `messages.message`.
      * @returns {Promise<{ success: boolean, error?: string }>}

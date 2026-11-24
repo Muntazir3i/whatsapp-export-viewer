@@ -89,15 +89,27 @@ export class chatRepository {
             ORDER BY id ASC;
         `);
 
-        // Up to 100 messages ending at a given id, oldest-first, for search jumps.
-        this.messageWindowStmt = this.db.prepare(`
-            SELECT * FROM (
-                SELECT * FROM messages
-                WHERE chat_id = ? AND id <= ?
-                ORDER BY id DESC
-                LIMIT ?
-            ) AS subquery
-            ORDER BY id ASC;
+        // Up to 100 messages newer than the cursor, oldest-first.
+        this.loadNewerMessagesStmt = this.db.prepare(`
+            SELECT * FROM messages
+            WHERE chat_id = ? AND id > ?
+            ORDER BY id ASC
+            LIMIT 100;
+        `);
+
+        // Jump window halves: messages at/before the target and messages after it.
+        this.windowOlderStmt = this.db.prepare(`
+            SELECT * FROM messages
+            WHERE chat_id = ? AND id <= ?
+            ORDER BY id DESC
+            LIMIT ?;
+        `);
+
+        this.windowNewerStmt = this.db.prepare(`
+            SELECT * FROM messages
+            WHERE chat_id = ? AND id > ?
+            ORDER BY id ASC
+            LIMIT ?;
         `);
 
         // In-chat search: newest matches first. The `id < ?` bound lets SQLite walk
@@ -208,20 +220,48 @@ export class chatRepository {
     }
 
     /**
-     * Up to `limit` messages ending at `messageId`, oldest-first. Used when jumping
-     * to a search result so the target arrives with surrounding context.
+     * Messages newer than `cursorId`, oldest-first. Used to continue past a search
+     * jump towards the newest message.
+     *
+     * @param {number|string} chat_id
+     * @param {number|string} cursorId
+     * @returns {Array<Object>}
+     */
+    loadNewerMessages(chat_id, cursorId) {
+        return this.loadNewerMessagesStmt.all(chat_id, cursorId);
+    }
+
+    /**
+     * Window of messages centered on `messageId`, oldest-first, for search jumps.
+     *
+     * The target is included in the older half so it renders in context and the
+     * user can scroll in both directions afterwards. Each half fetches one extra row
+     * to report whether more messages exist on that side.
      *
      * @param {number|string} chat_id
      * @param {number|string} messageId
      * @param {number|string} [limit]
-     * @returns {Array<Object>}
+     * @returns {{ messages: Array<Object>, hasOlder: boolean, hasNewer: boolean }}
      */
     findMessageWindow(chat_id, messageId, limit = 100) {
-        return this.messageWindowStmt.all(
-            chat_id,
-            messageId,
-            clampLimit(limit, 100, 200)
-        );
+        const total = clampLimit(limit, 100, 200);
+        const olderTarget = Math.ceil(total / 2); // includes the target itself
+        const newerTarget = total - olderTarget;
+
+        const older = this.windowOlderStmt.all(chat_id, messageId, olderTarget + 1);
+        const hasOlder = older.length > olderTarget;
+
+        const newer = this.windowNewerStmt.all(chat_id, messageId, newerTarget + 1);
+        const hasNewer = newer.length > newerTarget;
+
+        return {
+            messages: [
+                ...older.slice(0, olderTarget).reverse(),
+                ...newer.slice(0, newerTarget),
+            ],
+            hasOlder,
+            hasNewer,
+        };
     }
 
     /**

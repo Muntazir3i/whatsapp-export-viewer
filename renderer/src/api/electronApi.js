@@ -132,9 +132,23 @@ export function searchMessages(chatId, rawQuery, limit, beforeId) {
 export function getMessageWindow(chatId, messageId) {
   if (!window.api?.getMessageWindow) {
     console.warn('[electronApi] window.api.getMessageWindow is unavailable.');
-    return Promise.resolve([]);
+    return Promise.resolve({ messages: [], hasOlder: false, hasNewer: false });
   }
   return window.api.getMessageWindow(chatId, messageId);
+}
+
+/**
+ * Loads messages newer than a cursor, to continue past a search jump.
+ * @param {string|number} chatId
+ * @param {string|number} cursorId - Last loaded message ID.
+ * @returns {Promise<Array<Object>>}
+ */
+export function loadNewerMessages(chatId, cursorId) {
+  if (!window.api?.loadNewerMessages) {
+    console.warn('[electronApi] window.api.loadNewerMessages is unavailable.');
+    return Promise.resolve([]);
+  }
+  return window.api.loadNewerMessages(chatId, cursorId);
 }
 
 /**

@@ -83,6 +83,18 @@ export function registerChatHandlers(chatService, userDataPath) {
     });
 
     /**
+     * Handler for loading messages newer than a cursor, used to continue past a
+     * search jump towards the newest message.
+     * IPC Channel: "load-newer-messages"
+     * @param {Object} _ - IPC event (unused).
+     * @param {number|string} chatId - Target chat ID.
+     * @param {number|string} cursorId - Last loaded message ID.
+     */
+    ipcMain.handle("load-newer-messages", (_, chatId, cursorId) => {
+        return chatService.loadNewerMessages(chatId, cursorId);
+    });
+
+    /**
      * Handler for aggregate chat counters used by the chat info panel.
      * IPC Channel: "get-chat-stats"
      * @param {Object} _ - IPC event (unused).

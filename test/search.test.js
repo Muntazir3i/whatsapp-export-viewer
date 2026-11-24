@@ -283,45 +283,116 @@ test("the ID cursor pages through older matches without gaps or repeats", () => 
     db.close();
 });
 
-test("message window ends at the target and stays inside the chat", () => {
-    const { db, writer, service, chatA, chatB } = createFixture();
+test("jump window is centered on the target", () => {
+    const { db, writer, service, chatA } = createFixture();
 
-    const base = 1000;
     writer.insertBatch(
-        Array.from({ length: 150 }, (_, index) => ({
+        Array.from({ length: 300 }, (_, index) => ({
             chat_id: chatA.id,
             sender: "Ann",
-            message: `window message ${base + index}`,
+            message: `window message ${index}`,
             timestamp: "03/01/24 10:00",
             type: "text",
             extension: null,
             category: null,
         }))
     );
-    writer.insertMessage({
-        chat_id: chatB.id,
-        sender: "Bob",
-        message: "other chat window message",
-        timestamp: "03/01/24 10:00",
-        type: "text",
-        extension: null,
-        category: null,
-    });
 
     const all = db
         .prepare("SELECT id FROM messages WHERE chat_id = ? ORDER BY id ASC")
         .all(chatA.id);
-    const target = all[120].id;
+    const target = all[150].id;
 
     const window = service.getMessageWindow(chatA.id, target);
+    const ids = idsOf(window.messages);
 
-    assert.equal(window.length, 100);
-    assert.equal(window[window.length - 1].id, target);
-    assert.ok(window.every((row) => row.chat_id === chatA.id));
-    assert.ok(window[0].id > all[0].id);
+    assert.equal(window.messages.length, 100);
+    assert.equal(ids.indexOf(target), 49, "target ends the older half");
+    assert.equal(window.hasOlder, true);
+    assert.equal(window.hasNewer, true);
 
-    const expected = idsOf(all.slice(21, 121));
-    assert.deepEqual(idsOf(window), expected);
+    // Oldest-first, 50 on each side of the target.
+    assert.deepEqual(ids, [...ids].sort((a, b) => a - b));
+    assert.equal(ids[0], all[101].id);
+    assert.equal(ids.at(-1), all[200].id);
+
+    db.close();
+});
+
+test("jump window reports which sides have more messages", () => {
+    const { db, writer, service, chatA } = createFixture();
+
+    writer.insertBatch(
+        Array.from({ length: 300 }, (_, index) => ({
+            chat_id: chatA.id,
+            sender: "Ann",
+            message: `edge message ${index}`,
+            timestamp: "03/01/24 10:00",
+            type: "text",
+            extension: null,
+            category: null,
+        }))
+    );
+
+    const all = db
+        .prepare("SELECT id FROM messages WHERE chat_id = ? ORDER BY id ASC")
+        .all(chatA.id);
+
+    const atFirst = service.getMessageWindow(chatA.id, all[0].id);
+    assert.equal(atFirst.hasOlder, false);
+    assert.equal(atFirst.hasNewer, true);
+    assert.equal(atFirst.messages[0].id, all[0].id);
+
+    const atLast = service.getMessageWindow(chatA.id, all.at(-1).id);
+    assert.equal(atLast.hasOlder, true);
+    assert.equal(atLast.hasNewer, false);
+    assert.equal(atLast.messages.at(-1).id, all.at(-1).id);
+
+    db.close();
+});
+
+test("newer messages continue below a jump without leaving the chat", () => {
+    const { db, writer, service, chatA, chatB } = createFixture();
+
+    writer.insertBatch(
+        Array.from({ length: 250 }, (_, index) => ({
+            chat_id: chatA.id,
+            sender: "Ann",
+            message: `later message ${index}`,
+            timestamp: "04/01/24 10:00",
+            type: "text",
+            extension: null,
+            category: null,
+        }))
+    );
+    writer.insertBatch(
+        Array.from({ length: 5 }, (_, index) => ({
+            chat_id: chatB.id,
+            sender: "Bob",
+            message: `other chat later ${index}`,
+            timestamp: "04/01/24 10:00",
+            type: "text",
+            extension: null,
+            category: null,
+        }))
+    );
+
+    const all = db
+        .prepare("SELECT id FROM messages WHERE chat_id = ? ORDER BY id ASC")
+        .all(chatA.id);
+    const target = all[50].id;
+
+    const window = service.getMessageWindow(chatA.id, target);
+    const lastLoaded = window.messages.at(-1).id;
+
+    const newer = service.loadNewerMessages(chatA.id, lastLoaded);
+    const newerIds = idsOf(newer);
+
+    assert.equal(newer.length, 100);
+    assert.ok(newerIds[0] > lastLoaded);
+    assert.deepEqual(newerIds, [...newerIds].sort((a, b) => a - b));
+    assert.ok(newer.every((row) => row.chat_id === chatA.id));
+    assert.equal(new Set([...idsOf(window.messages), ...newerIds]).size, 200);
 
     db.close();
 });

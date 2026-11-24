@@ -77,15 +77,26 @@ export class chatServices {
     }
 
     /**
-     * Messages surrounding a search hit, ending at that message.
+     * Messages surrounding a search hit, centered on that message.
      *
      * @param {number|string} chat_id
      * @param {number|string} messageId
      * @param {number|string} [limit]
-     * @returns {Array<Object>}
+     * @returns {{ messages: Array<Object>, hasOlder: boolean, hasNewer: boolean }}
      */
     getMessageWindow(chat_id, messageId, limit = 100) {
         return this.chatRepository.findMessageWindow(chat_id, messageId, limit);
+    }
+
+    /**
+     * Messages newer than the cursor, for continuing past a search jump.
+     *
+     * @param {number|string} chat_id
+     * @param {number|string} cursorId
+     * @returns {Array<Object>}
+     */
+    loadNewerMessages(chat_id, cursorId) {
+        return this.chatRepository.loadNewerMessages(chat_id, cursorId);
     }
 
     /**
