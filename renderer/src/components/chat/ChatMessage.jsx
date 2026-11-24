@@ -190,7 +190,9 @@ export const ChatMessage = ({
         </div>
       ) : (
         <div
-          className={`flex ${isOutgoing ? "justify-end" : "justify-start"} w-full`}
+          className={`flex ${isOutgoing ? "justify-end" : "justify-start"} w-full rounded-md transition-colors ${
+            isHighlighted ? "bg-[#53bdeb]/10" : ""
+          }`}
           data-message-id={msg.id}
         >
           <div className={bubbleClassName}>

@@ -50,12 +50,13 @@ function Snippet({ text = '' }) {
  * @component
  * @param {Object} props
  * @param {number|string} props.chatId - Chat being searched.
- * @param {Function} props.onSelect - Called with the message ID of a chosen result.
+ * @param {Function} props.onSelect - Called with `{ id, index, query, results }` for the chosen hit.
  * @param {Function} props.onClose - Closes the search panel.
+ * @param {string} [props.initialQuery] - Query to restore when the panel is reopened.
  * @returns {JSX.Element}
  */
-export const ChatSearch = ({ chatId, onSelect, onClose }) => {
-  const [query, setQuery] = useState('');
+export const ChatSearch = ({ chatId, onSelect, onClose, initialQuery = '' }) => {
+  const [query, setQuery] = useState(initialQuery);
 
   // Results are tagged with the query they belong to, so "loading" can be derived
   // while the debounced request is in flight instead of set inside the effect.
@@ -196,11 +197,11 @@ export const ChatSearch = ({ chatId, onSelect, onClose }) => {
             </p>
 
             <ul>
-              {results.map((result) => (
+              {results.map((result, index) => (
                 <li key={result.id}>
                   <button
                     type="button"
-                    onClick={() => onSelect(result.id)}
+                    onClick={() => onSelect({ id: result.id, index, query: trimmed, results })}
                     className="w-full border-b border-white/5 px-4 py-3 text-left transition-colors hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#53bdeb]"
                   >
                     <div className="flex items-baseline justify-between gap-2">

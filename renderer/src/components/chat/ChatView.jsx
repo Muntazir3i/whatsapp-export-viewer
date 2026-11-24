@@ -65,12 +65,17 @@ export const ChatView = ({
   // Whether the in-chat search panel replaces the message list.
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Reset the info and search panels synchronously when switching conversations.
+  // Search session kept after a result is opened, so the arrows can move between
+  // hits without reopening the panel: { query, results, index }.
+  const [searchSession, setSearchSession] = useState(null);
+
+  // Reset the info, search, and navigation state synchronously when switching chats.
   const [prevChatId, setPrevChatId] = useState(selectedChat?.id);
   if (selectedChat?.id !== prevChatId) {
     setPrevChatId(selectedChat?.id);
     setShowInfo(false);
     setSearchOpen(false);
+    setSearchSession(null);
   }
 
   // PAGINATION STATE: Tracks whether older messages are currently being fetched
@@ -185,18 +190,37 @@ export const ChatView = ({
 
   /**
    * SEARCH RESULT SELECTION:
-   * Close the search panel and load the window of messages ending at the hit.
+   * Close the search panel, remember the result list for arrow navigation, and
+   * load the window of messages ending at the hit.
    */
-  const handleSearchSelect = (messageId) => {
+  const handleSearchSelect = ({ id, index, query, results }) => {
     setSearchOpen(false);
-    jumpToMessage?.(messageId);
+    setSearchSession({ query, results, index });
+    jumpToMessage?.(id);
   };
 
-  /** Re-pins the viewport to the newest message and clears the search highlight. */
+  /** Moves to the previous (-1) or next (+1) search hit and jumps to it. */
+  const stepSearchResult = (delta) => {
+    if (!searchSession) return;
+
+    const nextIndex = searchSession.index + delta;
+    const next = searchSession.results[nextIndex];
+    if (!next) return;
+
+    setSearchSession({ ...searchSession, index: nextIndex });
+    jumpToMessage?.(next.id);
+  };
+
+  /** Re-pins the viewport to the newest message and ends the search session. */
   const handleBackToLatest = () => {
     isPinnedToBottom.current = true;
+    setSearchSession(null);
     jumpToLatest?.();
   };
+
+  const atFirstResult = !searchSession || searchSession.index === 0;
+  const atLastResult =
+    !searchSession || searchSession.index >= searchSession.results.length - 1;
 
   return (
     <div className="w-full sm:ml-[340px] md:ml-[clamp(340px,30%,420px)] h-screen flex flex-col bg-[#0b141a] overflow-hidden">
@@ -223,6 +247,7 @@ export const ChatView = ({
         <ChatSearch
           key={selectedChat?.id}
           chatId={selectedChat?.id}
+          initialQuery={searchSession?.query || ''}
           onSelect={handleSearchSelect}
           onClose={() => setSearchOpen(false)}
         />
@@ -276,9 +301,47 @@ export const ChatView = ({
         </div>
       </div>
 
-      {/* Jumped to a search result: offer a way back to the newest messages */}
+      {/* Jumped to a search result: arrow between hits, or return to the newest messages */}
       {focusMessageId && (
-        <div className="flex justify-center bg-[#111b21] py-2 flex-shrink-0">
+        <div className="flex items-center justify-center gap-2 bg-[#111b21] px-3 py-2 flex-shrink-0">
+          {searchSession && (
+            <div className="flex items-center rounded-full bg-[#202c33] py-0.5 pl-3 pr-1 shadow-sm">
+              <span
+                className="text-[12px] tabular-nums text-[#8696a0]"
+                aria-live="polite"
+                title="Current match of total matches"
+              >
+                {searchSession.index + 1} / {searchSession.results.length}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => stepSearchResult(-1)}
+                disabled={atFirstResult}
+                aria-label="Previous match"
+                title="Previous match"
+                className="rounded-full p-1.5 text-[#aebac1] transition-colors hover:bg-white/5 hover:text-[#e9edef] disabled:pointer-events-none disabled:opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb]"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" />
+                </svg>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => stepSearchResult(1)}
+                disabled={atLastResult}
+                aria-label="Next match"
+                title="Next match"
+                className="rounded-full p-1.5 text-[#aebac1] transition-colors hover:bg-white/5 hover:text-[#e9edef] disabled:pointer-events-none disabled:opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb]"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleBackToLatest}
