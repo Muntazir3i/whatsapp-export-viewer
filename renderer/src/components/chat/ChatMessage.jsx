@@ -99,6 +99,7 @@ const AttachmentCard = ({ fileName, label, onOpen }) => (
  * @param {boolean} props.showDateDivider - Render the date pill above this message.
  * @param {string} [props.dateLabel] - Formatted date for the divider.
  * @param {boolean} props.isFirstInGroup - First message of a same-sender run (gets the tail).
+ * @param {boolean} [props.isHighlighted] - Marks the message targeted by a search jump.
  * @returns {JSX.Element}
  */
 export const ChatMessage = ({
@@ -107,6 +108,7 @@ export const ChatMessage = ({
   showDateDivider,
   dateLabel,
   isFirstInGroup,
+  isHighlighted = false,
 }) => {
   // Which attachment is currently open in the fullscreen viewer (null = closed).
   const [openMedia, setOpenMedia] = useState(null);
@@ -137,7 +139,7 @@ export const ChatMessage = ({
             ? "rounded-tr-none"
             : "rounded-tl-none"
           : ""
-      }`;
+      } ${isHighlighted ? "ring-2 ring-[#53bdeb]" : ""}`;
 
   // Timestamp + delivery ticks, rendered inside the bubble like WhatsApp.
   const metaClassName = `flex items-center gap-0.5 text-[11px] leading-none ${
@@ -179,13 +181,20 @@ export const ChatMessage = ({
 
       {/* System Messages & Message Bubble Row Container */}
       {msg.type === "system" ? (
-        <div className="flex justify-center my-2">
-          <span className="max-w-[80%] bg-[#182229] text-[#8696a0] text-[12.5px] leading-[19px] px-3 py-[5px] rounded-lg text-center shadow-sm">
+        <div className="flex justify-center my-2" data-message-id={msg.id}>
+          <span className={`max-w-[80%] bg-[#182229] text-[#8696a0] text-[12.5px] leading-[19px] px-3 py-[5px] rounded-lg text-center shadow-sm ${
+            isHighlighted ? "ring-2 ring-[#53bdeb]" : ""
+          }`}>
             {msg.message}
           </span>
         </div>
       ) : (
-        <div className={`flex ${isOutgoing ? "justify-end" : "justify-start"} w-full`}>
+        <div
+          className={`flex ${isOutgoing ? "justify-end" : "justify-start"} w-full rounded-md transition-colors ${
+            isHighlighted ? "bg-[#53bdeb]/10" : ""
+          }`}
+          data-message-id={msg.id}
+        >
           <div className={bubbleClassName}>
             {/* Bubble tail on the first message of a same-sender run */}
             {isFirstInGroup && !isSticker && (

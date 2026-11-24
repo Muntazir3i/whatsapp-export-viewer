@@ -4,6 +4,20 @@
  * Query and pagination semantics are defined here; upper layers are thin pass-throughs.
  */
 
+/**
+ * Normalizes a caller-supplied row limit.
+ *
+ * @param {number|string|null|undefined} limit - Requested row count.
+ * @param {number} fallback - Value used when the input is not a finite number.
+ * @param {number} max - Inclusive upper bound.
+ * @returns {number} Integer between 1 and `max`.
+ */
+function clampLimit(limit, fallback, max) {
+    const requested = Number(limit ?? fallback);
+    if (!Number.isFinite(requested)) return fallback;
+    return Math.min(Math.max(Math.trunc(requested), 1), max);
+}
+
 export class chatRepository {
     /**
      * @param {import('better-sqlite3').Database} db
@@ -73,6 +87,58 @@ export class chatRepository {
                 LIMIT 100
             ) AS subquery
             ORDER BY id ASC;
+        `);
+
+        // Up to 100 messages newer than the cursor, oldest-first.
+        this.loadNewerMessagesStmt = this.db.prepare(`
+            SELECT * FROM messages
+            WHERE chat_id = ? AND id > ?
+            ORDER BY id ASC
+            LIMIT 100;
+        `);
+
+        // Jump window halves: messages at/before the target and messages after it.
+        this.windowOlderStmt = this.db.prepare(`
+            SELECT * FROM messages
+            WHERE chat_id = ? AND id <= ?
+            ORDER BY id DESC
+            LIMIT ?;
+        `);
+
+        this.windowNewerStmt = this.db.prepare(`
+            SELECT * FROM messages
+            WHERE chat_id = ? AND id > ?
+            ORDER BY id ASC
+            LIMIT ?;
+        `);
+
+        // In-chat search: newest matches first. The `id < ?` bound lets SQLite walk
+        // the (chat_id, id) index instead of ranking every match, and the first page
+        // passes MAX_SAFE_INTEGER so it uses the same plan.
+        this.searchChatMessagesStmt = this.db.prepare(`
+            SELECT
+                m.id,
+                m.sender,
+                m.timestamp,
+                snippet(messages_fts, 0, char(1), char(2), '…', 12) AS snippet
+            FROM messages_fts
+            JOIN messages m ON m.id = messages_fts.rowid
+            WHERE messages_fts MATCH ?
+                AND m.chat_id = ?
+                AND m.type IN ('text', 'link')
+                AND m.id < ?
+            ORDER BY m.id DESC
+            LIMIT ?;
+        `);
+
+        // Total matches for the same query, so the UI can say "50 of 217".
+        this.countChatMessagesStmt = this.db.prepare(`
+            SELECT COUNT(*) AS total
+            FROM messages_fts
+            JOIN messages m ON m.id = messages_fts.rowid
+            WHERE messages_fts MATCH ?
+                AND m.chat_id = ?
+                AND m.type IN ('text', 'link');
         `);
 
         this.checkChatExistStmt = this.db.prepare(`
@@ -151,6 +217,88 @@ export class chatRepository {
      *  @param {number|string} chat_id @param {number|string} cursorId */
     loadMoreMessages(chat_id, cursorId) {
         return this.loadMoreMessagesStmt.all(chat_id, cursorId);
+    }
+
+    /**
+     * Messages newer than `cursorId`, oldest-first. Used to continue past a search
+     * jump towards the newest message.
+     *
+     * @param {number|string} chat_id
+     * @param {number|string} cursorId
+     * @returns {Array<Object>}
+     */
+    loadNewerMessages(chat_id, cursorId) {
+        return this.loadNewerMessagesStmt.all(chat_id, cursorId);
+    }
+
+    /**
+     * Window of messages centered on `messageId`, oldest-first, for search jumps.
+     *
+     * The target is included in the older half so it renders in context and the
+     * user can scroll in both directions afterwards. Each half fetches one extra row
+     * to report whether more messages exist on that side.
+     *
+     * @param {number|string} chat_id
+     * @param {number|string} messageId
+     * @param {number|string} [limit]
+     * @returns {{ messages: Array<Object>, hasOlder: boolean, hasNewer: boolean }}
+     */
+    findMessageWindow(chat_id, messageId, limit = 100) {
+        const total = clampLimit(limit, 100, 200);
+        const olderTarget = Math.ceil(total / 2); // includes the target itself
+        const newerTarget = total - olderTarget;
+
+        const older = this.windowOlderStmt.all(chat_id, messageId, olderTarget + 1);
+        const hasOlder = older.length > olderTarget;
+
+        const newer = this.windowNewerStmt.all(chat_id, messageId, newerTarget + 1);
+        const hasNewer = newer.length > newerTarget;
+
+        return {
+            messages: [
+                ...older.slice(0, olderTarget).reverse(),
+                ...newer.slice(0, newerTarget),
+            ],
+            hasOlder,
+            hasNewer,
+        };
+    }
+
+    /**
+     * Searches one chat's text and link messages, newest first.
+     *
+     * Pagination is keyset-based: pass the last seen message ID as `beforeId` to
+     * fetch the next page. The `id < ?` bound lets SQLite walk the `(chat_id, id)`
+     * index and stop once the page is full, rather than sorting every match as
+     * `ORDER BY bm25(...)` or an `OFFSET` would.
+     *
+     * @param {number|string} chatId
+     * @param {string} matchQuery - FTS5 expression from `buildMatchQuery`.
+     * @param {number|string} [limit] - Requested result count (1-100).
+     * @param {number|string|null} [beforeId] - Return only matches older than this ID.
+     * @returns {Array<{ id: number, sender: string|null, timestamp: string, snippet: string }>}
+     */
+    searchChatMessages(chatId, matchQuery, limit = 50, beforeId = null) {
+        if (!chatId || !matchQuery) return [];
+
+        return this.searchChatMessagesStmt.all(
+            matchQuery,
+            chatId,
+            beforeId ?? Number.MAX_SAFE_INTEGER,
+            clampLimit(limit, 50, 100)
+        );
+    }
+
+    /**
+     * Total number of messages matching the query in this chat.
+     *
+     * @param {number|string} chatId
+     * @param {string} matchQuery - FTS5 expression from `buildMatchQuery`.
+     * @returns {number}
+     */
+    countChatMessages(chatId, matchQuery) {
+        if (!chatId || !matchQuery) return 0;
+        return this.countChatMessagesStmt.get(matchQuery, chatId).total;
     }
 
     /** @param {string} chat_name @returns {boolean} */

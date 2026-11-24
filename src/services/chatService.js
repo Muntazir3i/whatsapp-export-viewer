@@ -4,6 +4,8 @@
  * over `chatRepository`; see that module for query and pagination semantics.
  */
 
+import { buildMatchQuery } from "../parser/searchQuery.js";
+
 export class chatServices {
 
     /**
@@ -50,6 +52,51 @@ export class chatServices {
     /** @see loadMessages */
     loadMoreMessages(chat_id, cursorId) {
         return this.loadMessages(chat_id, cursorId);
+    }
+
+    /**
+     * In-chat full-text search. Parses the raw search box text into an FTS5
+     * expression, so callers never pass unparsed input to `MATCH`.
+     *
+     * @param {number|string} chat_id
+     * @param {string} rawQuery - Text as typed by the user.
+     * @param {number|string} [limit] - Maximum results per page (1-100).
+     * @param {number|string|null} [beforeId] - Cursor: only matches older than this ID.
+     * @returns {{ results: Array<{ id: number, sender: string|null, timestamp: string, snippet: string }>, total: number|null }}
+     */
+    searchMessages(chat_id, rawQuery, limit = 50, beforeId = null) {
+        const matchQuery = buildMatchQuery(rawQuery);
+        if (!matchQuery) return { results: [], total: 0 };
+
+        return {
+            results: this.chatRepository.searchChatMessages(chat_id, matchQuery, limit, beforeId),
+            // Counting every match is only needed for the first page; the client
+            // keeps the total across "show more" requests.
+            total: beforeId ? null : this.chatRepository.countChatMessages(chat_id, matchQuery),
+        };
+    }
+
+    /**
+     * Messages surrounding a search hit, centered on that message.
+     *
+     * @param {number|string} chat_id
+     * @param {number|string} messageId
+     * @param {number|string} [limit]
+     * @returns {{ messages: Array<Object>, hasOlder: boolean, hasNewer: boolean }}
+     */
+    getMessageWindow(chat_id, messageId, limit = 100) {
+        return this.chatRepository.findMessageWindow(chat_id, messageId, limit);
+    }
+
+    /**
+     * Messages newer than the cursor, for continuing past a search jump.
+     *
+     * @param {number|string} chat_id
+     * @param {number|string} cursorId
+     * @returns {Array<Object>}
+     */
+    loadNewerMessages(chat_id, cursorId) {
+        return this.chatRepository.loadNewerMessages(chat_id, cursorId);
     }
 
     /**

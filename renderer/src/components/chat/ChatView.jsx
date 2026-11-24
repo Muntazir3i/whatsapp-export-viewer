@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { useChatSearch } from '../../hooks/useChatSearch.js';
 import { ChatHeader } from './ChatHeader.jsx';
+import { ChatSearch } from './ChatSearch.jsx';
 import { ReadOnlyInput } from './ReadOnlyInput.jsx';
 import { LoadMoreButton } from './LoadMoreButton.jsx';
 import { ChatMessage } from './ChatMessage.jsx';
@@ -36,8 +38,14 @@ function formatDateLabel(datePart) {
  * @param {Array<Object>} props.messages - Chronological array of message items.
  * @param {Function} props.loadMore - Callback function to fetch older messages from backend SQLite DB.
  * @param {boolean} props.hasMore - Boolean flag indicating if more historical messages exist.
+ * @param {Function} [props.loadNewer] - Fetches messages newer than the current list (after a search jump).
+ * @param {boolean} [props.hasNewer] - Whether newer messages exist below the loaded window.
+ * @param {boolean} [props.loadingNewer] - Whether a newer page is in flight.
  * @param {Function} props.isOutgoingMessage - Function checking if message is outgoing.
  * @param {React.RefObject} props.messagesEndRef - Ref DOM target for auto-scrolling on initial render.
+ * @param {number|null} [props.focusMessageId] - Message targeted by a search jump.
+ * @param {Function} [props.jumpToMessage] - Loads the window ending at a search hit.
+ * @param {Function} [props.jumpToLatest] - Restores the newest page of messages.
  * @returns {JSX.Element}
  */
 export const ChatView = ({
@@ -46,8 +54,14 @@ export const ChatView = ({
   messages,
   loadMore,
   hasMore,
+  loadNewer,
+  hasNewer = false,
+  loadingNewer = false,
   isOutgoingMessage,
   messagesEndRef,
+  focusMessageId = null,
+  jumpToMessage,
+  jumpToLatest,
 }) => {
   // PAGINATION STATE: Stores container scrollHeight prior to fetching older messages
   const [oldScrollHeight, setOldScrollHeight] = useState(0);
@@ -55,11 +69,23 @@ export const ChatView = ({
   // Whether the chat info panel is open instead of the message list.
   const [showInfo, setShowInfo] = useState(false);
 
-  // Reset the info panel synchronously when switching conversations.
+  // Whether the in-chat search panel replaces the message list.
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // Search results live above the panel so they survive closing it.
+  const search = useChatSearch(selectedChat?.id, searchOpen);
+
+  // Search session kept after a result is opened, so the arrows can move between
+  // hits without reopening the panel: { query, index }.
+  const [searchSession, setSearchSession] = useState(null);
+
+  // Reset the info, search, and navigation state synchronously when switching chats.
   const [prevChatId, setPrevChatId] = useState(selectedChat?.id);
   if (selectedChat?.id !== prevChatId) {
     setPrevChatId(selectedChat?.id);
     setShowInfo(false);
+    setSearchOpen(false);
+    setSearchSession(null);
   }
 
   // PAGINATION STATE: Tracks whether older messages are currently being fetched
@@ -116,6 +142,32 @@ export const ChatView = ({
   }, [messages]);
 
   /**
+   * SEARCH JUMP:
+   * Disable bottom pinning and center the target bubble. Media loading below the
+   * target must not drag the viewport away from the search hit.
+   */
+  useEffect(() => {
+    if (!focusMessageId) return;
+
+    isPinnedToBottom.current = false;
+
+    const container = scrollDivContainer.current;
+    const target = container?.querySelector(`[data-message-id="${focusMessageId}"]`);
+    target?.scrollIntoView({ block: 'center' });
+  }, [focusMessageId]);
+
+  /**
+   * BACK TO LATEST:
+   * Once the highlight is cleared, re-pin the viewport to the newest message.
+   */
+  useEffect(() => {
+    if (focusMessageId || !isPinnedToBottom.current) return;
+
+    const container = scrollDivContainer.current;
+    if (container) container.scrollTop = container.scrollHeight;
+  }, [focusMessageId, messages]);
+
+  /**
    * PAGINATION SCROLL LISTENER:
    * Triggers when the user scrolls the message container.
    * Checks if `scrollTop === 0` (top of scroll container reached). If so, saves the current `scrollHeight`,
@@ -123,15 +175,22 @@ export const ChatView = ({
    */
   const handleScroll = (event) => {
     const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+    const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
 
     // Stay pinned only while the user is within ~80px of the newest message.
-    isPinnedToBottom.current = scrollHeight - (scrollTop + clientHeight) < 80;
+    isPinnedToBottom.current = distanceFromBottom < 80;
 
     // Detect scroll top boundary
     if (scrollTop === 0 && hasMore && !isLoadingMore) {
       setOldScrollHeight(scrollHeight);
       setIsLoadingMore(true);
       loadMore(selectedChat.id);
+    }
+
+    // After a search jump, continue towards the newest messages when the user
+    // reaches the bottom of the loaded window.
+    if (distanceFromBottom < 120 && hasNewer && !loadingNewer) {
+      loadNewer?.();
     }
   };
 
@@ -146,6 +205,59 @@ export const ChatView = ({
     loadMore(selectedChat.id);
   };
 
+  /**
+   * SEARCH RESULT SELECTION:
+   * Close the search panel, remember the position, and load the window ending at
+   * the chosen hit.
+   */
+  const handleSearchSelect = (index) => {
+    const hit = search.results[index];
+    if (!hit) return;
+
+    setSearchOpen(false);
+    setSearchSession({ query: search.trimmed, index });
+    jumpToMessage?.(hit.id);
+  };
+
+  /** Moves to the previous (-1) or next (+1) search hit, loading pages as needed. */
+  const stepSearchResult = async (delta) => {
+    if (!searchSession || searchSession.query !== search.trimmed) return;
+
+    const nextIndex = searchSession.index + delta;
+    if (nextIndex < 0) return;
+
+    let hit = search.results[nextIndex];
+
+    // Reached the end of the loaded pages: fetch older matches, then land on the first.
+    if (!hit) {
+      if (delta < 0 || !search.hasMore || search.loadingMore) return;
+
+      const added = await search.loadMore();
+      hit = added[0];
+      if (!hit) return;
+    }
+
+    setSearchSession({ query: search.trimmed, index: nextIndex });
+    jumpToMessage?.(hit.id);
+  };
+
+  /** Re-pins the viewport to the newest message and ends the search session. */
+  const handleBackToLatest = () => {
+    isPinnedToBottom.current = true;
+    setSearchSession(null);
+    jumpToLatest?.();
+  };
+
+  // The session is stale if the query was edited without selecting a new hit.
+  const activeSession =
+    searchSession && searchSession.query === search.trimmed ? searchSession : null;
+
+  const atFirstResult = !activeSession || activeSession.index === 0;
+  const atLastResult =
+    !activeSession ||
+    search.loadingMore ||
+    (!search.hasMore && activeSession.index >= search.results.length - 1);
+
   return (
     <div className="w-full sm:ml-[340px] md:ml-[clamp(340px,30%,420px)] h-screen flex flex-col bg-[#0b141a] overflow-hidden">
       {/* Top sticky chat header */}
@@ -153,6 +265,8 @@ export const ChatView = ({
         selectedChat={selectedChat}
         currentUser={currentUser}
         onOpenInfo={() => setShowInfo(true)}
+        searchOpen={searchOpen}
+        onToggleSearch={() => setSearchOpen((open) => !open)}
       />
 
       {/* Chat info replaces the message list while open */}
@@ -164,7 +278,24 @@ export const ChatView = ({
         />
       )}
 
-      {!showInfo && (
+      {/* Search replaces the message list while open */}
+      {!showInfo && searchOpen && (
+        <ChatSearch
+          key={selectedChat?.id}
+          query={search.query}
+          onQueryChange={search.setQuery}
+          onClose={() => setSearchOpen(false)}
+          status={search.status}
+          results={search.results}
+          total={search.total}
+          hasMore={search.hasMore}
+          loadingMore={search.loadingMore}
+          onLoadMore={search.loadMore}
+          onSelect={handleSearchSelect}
+        />
+      )}
+
+      {!showInfo && !searchOpen && (
       <>
       {/* Scrollable messages container with overflow protection against horizontal scrolling */}
       <div
@@ -203,6 +334,7 @@ export const ChatView = ({
             showDateDivider={showDateDivider}
             dateLabel={formatDateLabel(currentDate)}
             isFirstInGroup={isFirstInGroup}
+            isHighlighted={msg.id === focusMessageId}
           />);
         })}
 
@@ -210,6 +342,57 @@ export const ChatView = ({
         <div ref={messagesEndRef} />
         </div>
       </div>
+
+      {/* Jumped to a search result: arrow between hits, or return to the newest messages */}
+      {focusMessageId && (
+        <div className="flex items-center justify-center gap-2 bg-[#111b21] px-3 py-2 flex-shrink-0">
+          {activeSession && (
+            <div className="flex items-center rounded-full bg-[#202c33] py-0.5 pl-3 pr-1 shadow-sm">
+              <span
+                className="text-[12px] tabular-nums text-[#8696a0]"
+                aria-live="polite"
+                title="Current match of total matches"
+              >
+                {activeSession.index + 1} / {search.total}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => stepSearchResult(-1)}
+                disabled={atFirstResult}
+                aria-label="Previous match"
+                title="Previous match"
+                className="rounded-full p-1.5 text-[#aebac1] transition-colors hover:bg-white/5 hover:text-[#e9edef] disabled:pointer-events-none disabled:opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb]"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" />
+                </svg>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => stepSearchResult(1)}
+                disabled={atLastResult}
+                aria-label="Next match"
+                title="Next match"
+                className="rounded-full p-1.5 text-[#aebac1] transition-colors hover:bg-white/5 hover:text-[#e9edef] disabled:pointer-events-none disabled:opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb]"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleBackToLatest}
+            className="rounded-full bg-[#202c33] px-4 py-1.5 text-[13px] text-[#e9edef] shadow-sm transition-colors hover:bg-[#2a3942] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#53bdeb]"
+          >
+            Back to latest
+          </button>
+        </div>
+      )}
 
       {/* Bottom read-only input indicator */}
       <ReadOnlyInput />

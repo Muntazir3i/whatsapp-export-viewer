@@ -4,7 +4,13 @@
  */
 
 /**
- * Creates the required tables (`chats` and `messages`) in the database if they do not already exist.
+ * Creates the application schema if it does not already exist:
+ *  - `chats` and `messages` tables
+ *  - `messages_fts` FTS5 index over message text (external content)
+ *  - triggers that keep `messages_fts` synchronized with `messages`
+ *  - a supporting `(chat_id, id)` index for message pagination
+ *
+ * Intended to run on every app start; all DDL is idempotent.
  *
  * @param {import("better-sqlite3").Database} db - SQLite database instance.
  */
@@ -30,6 +36,34 @@ export function createSchema(db) {
             category TEXT,
             FOREIGN KEY (chat_id) REFERENCES chats (id) ON DELETE CASCADE
         );
+
+        CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+        message,
+        content = 'messages',
+        content_rowid = 'id',
+        tokenize = 'unicode61 remove_diacritics 2'
+        );
+
+        CREATE TRIGGER IF NOT EXISTS message_ai AFTER INSERT ON messages BEGIN
+            INSERT INTO messages_fts(rowid, message)
+            VALUES (new.id, new.message);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS message_ad AFTER DELETE ON messages BEGIN
+            INSERT INTO messages_fts(messages_fts, rowid, message)
+            VALUES ('delete', old.id, old.message);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS message_au AFTER UPDATE ON messages BEGIN
+            INSERT INTO messages_fts(messages_fts, rowid, message)
+            VALUES ('delete', old.id, old.message);
+
+            INSERT INTO messages_fts(rowid, message)
+            VALUES (new.id, new.message);
+        END;
+
+        CREATE INDEX IF NOT EXISTS idx_messages_chat_id_id
+        ON messages(chat_id, id);
 
         `
     );

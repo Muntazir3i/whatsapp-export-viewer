@@ -108,6 +108,50 @@ export function loadMoreMessages(chatId, cursorId) {
 }
 
 /**
+ * Searches the text of one chat through SQLite FTS5.
+ * @param {string|number} chatId - The chat to search in.
+ * @param {string} rawQuery - Text typed into the search box.
+ * @param {number} [limit] - Maximum results per page (1-100).
+ * @param {string|number|null} [beforeId] - Cursor for the next page.
+ * @returns {Promise<{ results: Array<{ id: number, sender: string|null, timestamp: string, snippet: string }>, total: number|null }>}
+ */
+export function searchMessages(chatId, rawQuery, limit, beforeId) {
+  if (!window.api?.searchMessages) {
+    console.warn('[electronApi] window.api.searchMessages is unavailable.');
+    return Promise.resolve({ results: [], total: 0 });
+  }
+  return window.api.searchMessages(chatId, rawQuery, limit, beforeId);
+}
+
+/**
+ * Loads the messages surrounding a search hit, ending at that message.
+ * @param {string|number} chatId
+ * @param {string|number} messageId
+ * @returns {Promise<Array<Object>>}
+ */
+export function getMessageWindow(chatId, messageId) {
+  if (!window.api?.getMessageWindow) {
+    console.warn('[electronApi] window.api.getMessageWindow is unavailable.');
+    return Promise.resolve({ messages: [], hasOlder: false, hasNewer: false });
+  }
+  return window.api.getMessageWindow(chatId, messageId);
+}
+
+/**
+ * Loads messages newer than a cursor, to continue past a search jump.
+ * @param {string|number} chatId
+ * @param {string|number} cursorId - Last loaded message ID.
+ * @returns {Promise<Array<Object>>}
+ */
+export function loadNewerMessages(chatId, cursorId) {
+  if (!window.api?.loadNewerMessages) {
+    console.warn('[electronApi] window.api.loadNewerMessages is unavailable.');
+    return Promise.resolve([]);
+  }
+  return window.api.loadNewerMessages(chatId, cursorId);
+}
+
+/**
  * Opens a stored attachment with the OS default application via IPC.
  * @param {string} storedPath - Path from `messages.message`.
  * @returns {Promise<{ success: boolean, error?: string }>}

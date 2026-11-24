@@ -57,6 +57,35 @@ contextBridge.exposeInMainWorld("api", {
     loadMoreMessages: (chatId, cursorId) => ipcRenderer.invoke("load-messages", chatId, cursorId),
 
     /**
+     * Searches the text of one chat using SQLite FTS5.
+     * @param {number|string} chatId - Target chat unique identifier.
+     * @param {string} rawQuery - Text typed into the search box.
+     * @param {number|string} [limit] - Maximum results per page (1-100).
+     * @param {number|string|null} [beforeId] - Cursor for the next page.
+     * @returns {Promise<{ results: Array<{ id: number, sender: string|null, timestamp: string, snippet: string }>, total: number|null }>}
+     */
+    searchMessages: (chatId, rawQuery, limit, beforeId) =>
+        ipcRenderer.invoke("search-messages", chatId, rawQuery, limit, beforeId),
+
+    /**
+     * Loads the messages surrounding a search hit, ending at that message.
+     * @param {number|string} chatId - Target chat unique identifier.
+     * @param {number|string} messageId - Message to end the window at.
+     * @returns {Promise<Array<Object>>} Message records.
+     */
+    getMessageWindow: (chatId, messageId) =>
+        ipcRenderer.invoke("get-message-window", chatId, messageId),
+
+    /**
+     * Loads messages newer than a cursor, to continue past a search jump.
+     * @param {number|string} chatId - Target chat unique identifier.
+     * @param {number|string} cursorId - Last loaded message ID.
+     * @returns {Promise<Array<Object>>} Newer message records.
+     */
+    loadNewerMessages: (chatId, cursorId) =>
+        ipcRenderer.invoke("load-newer-messages", chatId, cursorId),
+
+    /**
      * Opens a stored attachment with the OS default application.
      * @param {string} storedPath - Imports-relative or absolute path from `messages.message`.
      * @returns {Promise<{ success: boolean, error?: string }>}
