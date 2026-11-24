@@ -46,6 +46,8 @@ jobs:
     name: Build installers (${{ matrix.os }})
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: false
     strategy:
       fail-fast: false
       matrix:
@@ -66,17 +68,24 @@ jobs:
 
       - run: npm test
 
+      - name: Install Linux packaging dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools fakeroot
+          sudo apt-get install -y libfuse2 || sudo apt-get install -y libfuse2t64
+
       - name: Build macOS installers
         if: runner.os == 'macOS'
-        run: npm run build:mac
+        run: npm run renderer:build && npx electron-builder --mac --publish never
 
       - name: Build Windows installer
         if: runner.os == 'Windows'
-        run: npm run build:win
+        run: npm run renderer:build && npx electron-builder --win --config.win.signAndEditExecutable=false --publish never
 
       - name: Build Linux installers
         if: runner.os == 'Linux'
-        run: npm run build:linux
+        run: npm run renderer:build && npx electron-builder --linux --publish never
 
       - uses: actions/upload-artifact@v4
         with:
