@@ -4,10 +4,11 @@
  * and locating target text files across both development and production environments.
  */
 
-import extract from "extract-zip";
+import yauzl from "yauzl";
 import path from "path";
-import { existsSync, mkdirSync } from "fs";
-import { readdir } from "fs/promises";
+import { createWriteStream, existsSync } from "fs";
+import { readdir, mkdir, realpath, lstat } from "fs/promises";
+import { pipeline } from "stream/promises";
 import { resolveChatFolder } from "./appPaths.js";
 import { extractChatFileInfo } from "../parser/importer.js";
 
@@ -40,7 +41,67 @@ export async function grabFileLocation(filePath, customName, userDataPath) {
 }
 
 /**
- * Extracts a ZIP archive into the specified destination directory with entry progress reporting.
+ * Opens a ZIP archive for lazy, entry-by-entry reading.
+ *
+ * @param {string} zipFilePath
+ * @returns {Promise<import("yauzl").ZipFile>}
+ */
+function openZip(zipFilePath) {
+    return new Promise((resolve, reject) => {
+        yauzl.open(zipFilePath, { lazyEntries: true }, (err, zipfile) => {
+            if (err) reject(err);
+            else resolve(zipfile);
+        });
+    });
+}
+
+/**
+ * Opens the decompressed stream for a single ZIP entry.
+ *
+ * @param {import("yauzl").ZipFile} zipfile
+ * @param {import("yauzl").Entry} entry
+ * @returns {Promise<import("stream").Readable>}
+ */
+function openEntryStream(zipfile, entry) {
+    return new Promise((resolve, reject) => {
+        zipfile.openReadStream(entry, (err, stream) => {
+            if (err) reject(err);
+            else resolve(stream);
+        });
+    });
+}
+
+/**
+ * Returns true for entries that could escape the extraction root or create a
+ * symlink. Symlinks are rejected outright because a later entry could write
+ * through the link outside the imports directory.
+ *
+ * @param {Object} entry - A yauzl entry.
+ * @returns {boolean}
+ */
+export function isUnsafeZipEntry(entry) {
+    const name = entry?.fileName;
+    if (typeof name !== "string" || name.length === 0 || name.includes("\0")) {
+        return true;
+    }
+
+    const normalized = name.replace(/\\/g, "/");
+    if (normalized.startsWith("/") || /^[a-zA-Z]:/.test(normalized)) {
+        return true;
+    }
+    if (normalized.split("/").includes("..")) {
+        return true;
+    }
+
+    const mode = (entry.externalFileAttributes >>> 16) & 0xffff;
+    return (mode & 0o170000) === 0o120000;
+}
+
+/**
+ * Extracts a ZIP archive into the specified destination directory.
+ *
+ * Rejects symlink entries, absolute paths, and `..` traversal before writing.
+ * Files are written only after their parent resolves inside the destination.
  *
  * @param {string} zipFilePath - Absolute or relative path to the ZIP archive.
  * @param {string} outputDir - Destination directory for extracted contents.
@@ -48,20 +109,87 @@ export async function grabFileLocation(filePath, customName, userDataPath) {
  */
 export async function extractZip(zipFilePath, outputDir, onProgress) {
     try {
-        if (!existsSync(outputDir)) {
-            mkdirSync(outputDir, { recursive: true });
-        }
-
+        const root = path.resolve(outputDir);
+        await mkdir(root, { recursive: true });
+        const realRoot = await realpath(root);
+        const zipfile = await openZip(zipFilePath);
         let entriesProcessed = 0;
 
-        await extract(zipFilePath, {
-            dir: path.resolve(outputDir),
-            onEntry: (entry, zipfile) => {
-                entriesProcessed++;
-                if (onProgress) {
-                    onProgress(entriesProcessed, zipfile.entryCount, entry.fileName);
+        await new Promise((resolve, reject) => {
+            let settled = false;
+
+            const fail = (err) => {
+                if (settled) return;
+                settled = true;
+                try {
+                    zipfile.close();
+                } catch {
+                    // Already closed by yauzl.
                 }
-            }
+                reject(err);
+            };
+
+            zipfile.on("error", fail);
+            zipfile.on("end", () => {
+                if (settled) return;
+                settled = true;
+                resolve();
+            });
+
+            zipfile.on("entry", async (entry) => {
+                if (settled) return;
+
+                try {
+                    if (entry.fileName.startsWith("__MACOSX/")) {
+                        zipfile.readEntry();
+                        return;
+                    }
+
+                    if (isUnsafeZipEntry(entry)) {
+                        throw new Error(`Unsafe ZIP entry rejected: "${entry.fileName}"`);
+                    }
+
+                    const normalized = entry.fileName.replace(/\\/g, "/");
+                    const dest = path.join(realRoot, normalized);
+                    const relative = path.relative(realRoot, dest);
+                    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+                        throw new Error(`ZIP entry escapes the import directory: "${entry.fileName}"`);
+                    }
+
+                    const mode = (entry.externalFileAttributes >>> 16) & 0xffff;
+                    const isDir = normalized.endsWith("/") || (mode & 0o170000) === 0o040000;
+                    const parent = path.dirname(dest);
+
+                    await mkdir(parent, { recursive: true });
+                    const parentReal = await realpath(parent);
+                    const parentRelative = path.relative(realRoot, parentReal);
+                    if (parentRelative.startsWith("..") || path.isAbsolute(parentRelative)) {
+                        throw new Error(`ZIP entry escapes the import directory: "${entry.fileName}"`);
+                    }
+
+                    const existing = await lstat(dest).catch(() => null);
+                    if (existing?.isSymbolicLink()) {
+                        throw new Error(`Refusing to overwrite symlink: "${entry.fileName}"`);
+                    }
+
+                    if (isDir) {
+                        await mkdir(dest, { recursive: true, mode: (mode & 0o777) || 0o755 });
+                    } else {
+                        const readStream = await openEntryStream(zipfile, entry);
+                        await pipeline(readStream, createWriteStream(dest, { mode: (mode & 0o777) || 0o644 }));
+                    }
+
+                    entriesProcessed++;
+                    if (onProgress) {
+                        onProgress(entriesProcessed, zipfile.entryCount, entry.fileName);
+                    }
+                    zipfile.readEntry();
+                } catch (err) {
+                    fail(err);
+                }
+            });
+
+            zipfile.readEntry();
         });
     } catch (err) {
         console.error("\n❌ Failed to extract ZIP archive:", err.message);

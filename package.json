@@ -32,13 +32,14 @@
   },
   "dependencies": {
     "better-sqlite3": "^13.0.1",
-    "extract-zip": "^2.0.1"
+    "yauzl": "^2.10.0"
   },
   "devDependencies": {
     "concurrently": "^9.2.5",
     "electron": "^43.3.0",
     "electron-builder": "^26.15.3",
-    "wait-on": "^8.0.5"
+    "wait-on": "^8.0.5",
+    "yazl": "^3.3.1"
   },
   "allowScripts": {
     "better-sqlite3@13.0.1": true
