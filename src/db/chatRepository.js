@@ -75,6 +75,20 @@ export class chatRepository {
             ORDER BY id ASC;
         `);
 
+      this.searchChatMessagesStmt = this.db.prepare(`SELECT
+        m.id,
+        m.sender,
+        m.timestamp,
+        bm25(messages_fts) AS rank,
+        snippet(messages_fts, 0, char(1), char(2), '…', 12) AS snippet
+      FROM messages_fts
+      JOIN messages m ON m.id = messages_fts.rowid
+      WHERE messages_fts MATCH ?
+        AND m.chat_id = ?
+        AND m.type IN ('text', 'link')
+      ORDER BY rank
+      LIMIT ?;`);
+
         this.checkChatExistStmt = this.db.prepare(`
             SELECT 1 
                 FROM chats 
@@ -151,6 +165,15 @@ export class chatRepository {
      *  @param {number|string} chat_id @param {number|string} cursorId */
     loadMoreMessages(chat_id, cursorId) {
         return this.loadMoreMessagesStmt.all(chat_id, cursorId);
+    }
+
+    searchChatMessages(chatId, matchQuery, limit = 50) {
+        if (!chatId || !matchQuery) return [];
+        const n = Number(limit ?? 50);
+        const safeLimit = Number.isFinite(n)
+            ? Math.min(Math.max(Math.trunc(n), 1), 100)
+            : 50;
+        return this.searchChatMessagesStmt.all(matchQuery, chatId, safeLimit);
     }
 
     /** @param {string} chat_name @returns {boolean} */

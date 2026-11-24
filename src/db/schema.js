@@ -6,8 +6,8 @@
 /**
  * Creates the application schema if it does not already exist:
  *  - `chats` and `messages` tables
- *  - `message_fts` FTS5 index over message text (external content)
- *  - triggers that keep `message_fts` synchronized with `messages`
+ *  - `messages_fts` FTS5 index over message text (external content)
+ *  - triggers that keep `messages_fts` synchronized with `messages`
  *  - a supporting `(chat_id, id)` index for message pagination
  *
  * Intended to run on every app start; all DDL is idempotent.
@@ -45,20 +45,20 @@ export function createSchema(db) {
         );
 
         CREATE TRIGGER IF NOT EXISTS message_ai AFTER INSERT ON messages BEGIN
-            INSERT INTO message_fts(rowid, message)
+            INSERT INTO messages_fts(rowid, message)
             VALUES (new.id, new.message);
         END;
 
         CREATE TRIGGER IF NOT EXISTS message_ad AFTER DELETE ON messages BEGIN
-            INSERT INTO message_fts(message_fts, rowid, message)
+            INSERT INTO messages_fts(messages_fts, rowid, message)
             VALUES ('delete', old.id, old.message);
         END;
 
         CREATE TRIGGER IF NOT EXISTS message_au AFTER UPDATE ON messages BEGIN
-            INSERT INTO message_fts(message_fts, rowid, message)
+            INSERT INTO messages_fts(messages_fts, rowid, message)
             VALUES ('delete', old.id, old.message);
 
-            INSERT INTO message_fts(rowid, message)
+            INSERT INTO messages_fts(rowid, message)
             VALUES (new.id, new.message);
         END;
 
