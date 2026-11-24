@@ -22,6 +22,13 @@ export default defineConfig({
     tailwindcss(),  // Vite integration plugin for Tailwind CSS v4
   ],
 
+  // Keep the dev server in sync with electron/main.js and the root `wait-on`
+  // check. strictPort avoids silently moving to 5174 when 5173 is occupied.
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
+
   build: {
     // Output directory for the compiled renderer bundle
     outDir: 'dist',
